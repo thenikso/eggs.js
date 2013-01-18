@@ -1,0 +1,14 @@
+{
+  "name": "eggsjs",
+  "version": "0.0.1",
+  "description": "To make Web Apps you need Eggs",
+  "main": "Eggs.js",
+  "devDependencies": {"phantom-jasmine" : ">=0.3.x",
+                      "coffee-script": ">=1.2.x"},
+  "scripts": {
+    "test": "phantomjs test/vendor/run_jasmine_test.coffee test/index.html"
+  },
+  "repository": "",
+  "author": "Nicola Peduzzi",
+  "license": "MIT"
+}

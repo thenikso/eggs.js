@@ -1,0 +1,80 @@
+<html>
+<head>
+	<title>eggs bootstrap</title>
+	<script type="text/javascript" src="../lib/underscore.js"></script>
+	<script type="text/javascript" src="../lib/jquery.js"></script>
+	<script type="text/javascript" src="../lib/Bacon.js"></script>
+	<script type="text/javascript" src="../Eggs.js"></script>
+	<script type="text/javascript">
+	// Eggs.currentLocation.onValue(function(value) {
+	// 	console.log(value);
+	// });
+
+	Eggs.route('task/:id*rest').onValues(function(id, rest) {
+		console.log(id);
+		console.log(rest);
+	});
+
+	// var bus = new Bacon.Bus
+	// bus.filter(function(val) {
+	// 	console.log(val);
+	// 	return true;
+	// }).onValue(function(val) {
+	// 	console.log("OK"+val);
+	// });
+
+	// bus.push("kk");
+	// bus.error("error");
+
+
+//////////////////////////////////
+	$(function() {
+		var Framework = Eggs.model({
+			defaults: {
+				name: 'Backbone.js',
+				coolness: 4
+			},
+
+			idAttribute: 'id',
+
+			urlRoot: 'framework/',
+
+			validate: function(prop) {
+				if (prop.name.length < 4) {
+					return "Name too short!";
+				}
+			}
+		});
+
+		var eggs = new Framework({
+			name: 'eggs.js',
+			coolness: 10
+		});
+
+		eggs.property('name').onValue(function(value) {
+			console.log(value);
+		});
+
+		eggs.attributes.onError(function(value) {
+			console.log("error: "+value);
+		});
+
+		var textChange = $('#mytext').asEventStream('keyup').filter(function(e) {
+			return e.keyCode == 13;
+		}).map(function() {
+			return $('#mytext').val();
+		}).toProperty().skipDuplicates();
+
+		// eggs.property('name', textChange);
+		textChange.onValue(function(value) {
+			eggs.property('name', value);
+		});	
+
+	});
+	
+	</script>
+</head>
+<body>
+	<input type="text" id="mytext">
+</body>
+</html>

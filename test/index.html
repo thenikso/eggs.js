@@ -1,0 +1,55 @@
+<!DOCTYPE>
+<html>
+<head>
+  <title>Eggs.js Jasmine Test Runner</title>
+  <link rel="stylesheet" type="text/css" href="vendor/jasmine-1.3.1/jasmine.css">
+  <script type="text/javascript" src="vendor/jasmine-1.3.1/jasmine.js"></script>
+  <script type="text/javascript" src="vendor/jasmine-1.3.1/jasmine-html.js"></script>
+
+  <script type="text/javascript" src="vendor/console-runner.js"></script>
+
+  <!-- LIBRARIES -->
+  <script type="text/javascript" src="../lib/underscore.js"></script>
+  <script type="text/javascript" src="../lib/jquery.js"></script>
+  <script type="text/javascript" src="../lib/Bacon.js"></script>
+
+  <!-- SOURCE FILES -->
+  <script type="text/javascript" src="../Eggs.js"></script>
+
+  <!-- TEST FILES -->
+  <script type="text/javascript" src="eggs.spec.js"></script>
+
+  <script type="text/javascript">
+  	var console_reporter = new jasmine.ConsoleReporter();
+    (function() {
+      var jasmineEnv = jasmine.getEnv();
+      jasmineEnv.updateInterval = 1000;
+
+      var htmlReporter = new jasmine.HtmlReporter();
+
+      jasmineEnv.addReporter(htmlReporter);
+      jasmineEnv.addReporter(console_reporter);
+
+      jasmineEnv.specFilter = function(spec) {
+        return htmlReporter.specFilter(spec);
+      };
+
+      var currentWindowOnload = window.onload;
+
+      window.onload = function() {
+        if (currentWindowOnload) {
+          currentWindowOnload();
+        }
+        execJasmine();
+      };
+
+      function execJasmine() {
+        jasmineEnv.execute();
+      }
+    })();
+  </script>
+</head>
+<body>
+	
+</body>
+</html>
