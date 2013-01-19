@@ -6,22 +6,48 @@ Eggs = @Eggs = {}
 # ----------
 
 # An `Eggs.Model` lets you manage data and synchronize it with the server.
-# Options:
+# To specify a new model, the class should be extended using either coffee 
+# script's `extend` or `Eggs.Model.extend`. Methods that may be extended are:
+# 	- `initialize` will be called when a new isntance of the model is created;
+# 	- `validate` will be called with an object of attributes that should be
+# 		validated. Returns an error (usually a string) or nothing if the validation
+# 		was successful.
 #
-# Properties:
-# 	- `attributes` push and object containing all the model instance attributes
-# 		after validation. An validation error object is pushed if the validation 
-# 		process failed. The error object contains an `error` and an `attributes`
-# 		field with the error message returned by the validation process and the
-# 		invalid attributes object.
+# Once extended, the new model class can be instantiated to represent an entry.
+# The constructor accepts the initial *attributes* for the new model instance
+# and *options*. Initial attributes will be passed through the validation process
+# if any. Available options are:
+# 	- `shouldValidate` defaults to `true` and indicates if the model isntance should
+# 		be validated.
 #
-# Usage:
+# Instance members:
+# 	- `attributes` is a Bacon.Property that pushes an object containing all 
+# 		the model instance attributes after validation. 
+# 		A validation error object is pushed if the validation process failed.
+# 		The error object contains:
+# 			* `error`: the error message returned by the `validate` method
+# 			* `attributes`: the invalid attributes objec
+# 		`attributes` is decorated with:
+# 			* `set`: a method that accepts an object to update the model instance
+# 				attributes. This method will create new properties if needed.
+# 	- `properties` is an object that associate property names with Bacon.Property.
+# 		If, for example, the model has a `myProperty` property, one can access it 
+# 		via `myModel.properties.myProperty`.
+# 		Each property object is decorated with:
+# 			* `set`: a method that can be used to set the signle property
+# 	- `propertyNames` is a Bacon.Property that pushes an array with all the 
+# 		available properties in the model instance.
+#
+# Example Usage:
 # 	class MyModel extends Eggs.Model
 # 		defaults: { myField: 'myFieldDefaultValue' }
+# 		validate: (attributes) -> "too short!" if attributes.myField.length < 3
+# 	myModel = new MyModel({ myOtherField: 2 })
+# 	myModel.attributes.onValue (value) -> console.log(value)
 Eggs.Model = class Model
 	constructor: (attributes, options) ->
 		options = _.defaults({
-			validate: true
+			shouldValidate: true
 		}, options)
 
 		# Get model instance attributes. `attrs` will keep the current attributes
@@ -31,7 +57,7 @@ Eggs.Model = class Model
 
 		# Initial validation. Attributes and properties will not have an initial value
 		# if attrs are invalid.
-		attrsInitialValidationError = options.validate and @validate?(attrs)
+		attrsInitialValidationError = options.shouldValidate and @validate?(attrs)
 
 		# The bus and relative property that will send validated attributes
 		# and validation errors.
@@ -86,7 +112,7 @@ Eggs.Model = class Model
 			# Ignore update if equal to current state
 			return if _.isEqual(attrObject, attrs)
 			# Validation pass
-			if options.validate and error = @validate?(attrObject)
+			if options.shouldValidate and error = @validate?(attrObject)
 				validAttributesBus.error(error)
 			else
 				if _.difference(_.keys(attrObject), _.keys(attrs)).length
@@ -94,7 +120,8 @@ Eggs.Model = class Model
 					propertyNamesBus.push(_.keys(attrs))
 				validAttributesBus.push(attrs = attrObject)
 
-		# Setting 
+		# This will start the reaction that eventually generates a template
+		# used to combine single propertyes and validate them.
 		propertyNamesBus.push(_.keys(attrs))
 
 		# Custom initialization

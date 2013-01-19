@@ -10,13 +10,13 @@
       var attrs, attrsInitialValidationError, defaults, generatedPropertiesBusses, makeProperty, propertiesBusses, propertyName, propertyNamesBus, setAttributesBus, validAttributesBus,
         _this = this;
       options = _.defaults({
-        validate: true
+        shouldValidate: true
       }, options);
       attrs = attributes || {};
       if (defaults = _.result(this, 'defaults')) {
         attrs = _.defaults({}, attrs, defaults);
       }
-      attrsInitialValidationError = options.validate && (typeof this.validate === "function" ? this.validate(attrs) : void 0);
+      attrsInitialValidationError = options.shouldValidate && (typeof this.validate === "function" ? this.validate(attrs) : void 0);
       validAttributesBus = new Bacon.Bus;
       if (!attrsInitialValidationError) {
         this.attributes = validAttributesBus.toProperty(attrs);
@@ -71,7 +71,7 @@
         if (_.isEqual(attrObject, attrs)) {
           return;
         }
-        if (options.validate && (error = typeof _this.validate === "function" ? _this.validate(attrObject) : void 0)) {
+        if (options.shouldValidate && (error = typeof _this.validate === "function" ? _this.validate(attrObject) : void 0)) {
           return validAttributesBus.error(error);
         } else {
           if (_.difference(_.keys(attrObject), _.keys(attrs)).length) {
