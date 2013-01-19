@@ -7,7 +7,7 @@
   Eggs.Model = Model = (function() {
 
     function Model(attributes, options) {
-      var attrs, attrsInitialValidationError, defaults, generatedPropertiesBusses, makeProperty, propertiesBusses, propertyName, propertyNamesListBus, setAttributesBus, validAttributesBus,
+      var attrs, attrsInitialValidationError, defaults, generatedPropertiesBusses, makeProperty, propertiesBusses, propertyName, propertyNamesBus, setAttributesBus, validAttributesBus,
         _this = this;
       options = _.defaults({
         validate: true
@@ -27,7 +27,7 @@
       this.attributes.set = function(value) {
         return setAttributesBus.push(value);
       };
-      propertyNamesListBus = new Bacon.Bus;
+      propertyNamesBus = new Bacon.Bus;
       this.properties = {};
       propertiesBusses = {};
       makeProperty = function(propertyName) {
@@ -46,7 +46,7 @@
           makeProperty(propertyName);
         }
       }
-      generatedPropertiesBusses = propertyNamesListBus.map(function(propertyNames) {
+      generatedPropertiesBusses = propertyNamesBus.map(function(propertyNames) {
         var _i, _len;
         for (_i = 0, _len = propertyNames.length; _i < _len; _i++) {
           propertyName = propertyNames[_i];
@@ -54,13 +54,13 @@
         }
         return propertiesBusses;
       });
-      this.propertyNamesList = generatedPropertiesBusses.map(function(busses) {
+      this.propertyNames = generatedPropertiesBusses.map(function(busses) {
         return _.keys(busses);
       });
       if (!attrsInitialValidationError) {
-        this.propertyNamesList = this.propertyNamesList.toProperty(_.keys(attrs));
+        this.propertyNames = this.propertyNames.toProperty(_.keys(attrs));
       } else {
-        this.propertyNamesList = this.propertyNamesList.toProperty();
+        this.propertyNames = this.propertyNames.toProperty();
       }
       Bacon.mergeAll([
         setAttributesBus.map(function(value) {
@@ -76,12 +76,12 @@
         } else {
           if (_.difference(_.keys(attrObject), _.keys(attrs)).length) {
             attrs = attrObject;
-            propertyNamesListBus.push(_.keys(attrs));
+            propertyNamesBus.push(_.keys(attrs));
           }
           return validAttributesBus.push(attrs = attrObject);
         }
       });
-      propertyNamesListBus.push(_.keys(attrs));
+      propertyNamesBus.push(_.keys(attrs));
       this.initialize.apply(this, arguments);
     }
 

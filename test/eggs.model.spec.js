@@ -90,8 +90,8 @@
           return testModel.attributes.take(1);
         }, [{}]);
       });
-      it("should have a Bacon.Property as `propertyNamesList`", function() {
-        return expect(testModel.propertyNamesList instanceof Bacon.Property).toBeTruthy();
+      it("should have a Bacon.Property as `propertyNames`", function() {
+        return expect(testModel.propertyNames instanceof Bacon.Property).toBeTruthy();
       });
       it("should add new attributes when setting `attributes`", function() {
         return expectPropertyEvents(function() {
@@ -109,10 +109,10 @@
           }
         ]);
       });
-      return it("should add a new property to `propertyNamesList` when setting `attributes`", function() {
+      return it("should add a new property to `propertyNames` when setting `attributes`", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.propertyNamesList.take(2);
+          p = testModel.propertyNames.take(2);
           soon(function() {
             return testModel.attributes.set({
               one: 1
@@ -257,9 +257,9 @@
           return p;
         }, ['one', 1]);
       });
-      it("should have correct `propertyNamesList` names", function() {
+      it("should have correct `propertyNames` names", function() {
         return expectPropertyEvents(function() {
-          return testModel.propertyNamesList.take(1).map(function(v) {
+          return testModel.propertyNames.take(1).map(function(v) {
             return v.sort();
           });
         }, [['one', 'two']]);
@@ -267,7 +267,7 @@
       return it("should add a new property", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.propertyNamesList.take(2).map(function(v) {
+          p = testModel.propertyNames.take(2).map(function(v) {
             return v.sort();
           });
           soon(function() {
@@ -376,10 +376,10 @@
           return p;
         }, ['one']);
       });
-      return it("should NOT push initial propertyNamesList", function() {
+      return it("should NOT push initial propertyNames", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.propertyNamesList.take(1).map(function(v) {
+          p = testModel.propertyNames.take(1).map(function(v) {
             return v.sort();
           });
           soon(function() {

@@ -39,8 +39,8 @@ describe "Eggs.Model", ->
 				-> testModel.attributes.take(1)
 				[ {} ])
 
-		it "should have a Bacon.Property as `propertyNamesList`", ->
-			expect(testModel.propertyNamesList instanceof Bacon.Property).toBeTruthy()
+		it "should have a Bacon.Property as `propertyNames`", ->
+			expect(testModel.propertyNames instanceof Bacon.Property).toBeTruthy()
 
 		it "should add new attributes when setting `attributes`", ->
 			expectPropertyEvents(
@@ -50,10 +50,10 @@ describe "Eggs.Model", ->
 					p
 				[ {}, { one: 1 }])
 
-		it "should add a new property to `propertyNamesList` when setting `attributes`", ->
+		it "should add a new property to `propertyNames` when setting `attributes`", ->
 			expectPropertyEvents(
 				->
-					p = testModel.propertyNamesList.take(2)
+					p = testModel.propertyNames.take(2)
 					soon -> testModel.attributes.set({ one: 1 })
 					p
 				[ [], ['one'] ])
@@ -139,15 +139,15 @@ describe "Eggs.Model", ->
 					p
 				[ 'one', 1 ])
 
-		it "should have correct `propertyNamesList` names", ->
+		it "should have correct `propertyNames` names", ->
 			expectPropertyEvents(
-				-> testModel.propertyNamesList.take(1).map((v) -> v.sort())
+				-> testModel.propertyNames.take(1).map((v) -> v.sort())
 				[ ['one', 'two'] ])
 
 		it "should add a new property", ->
 			expectPropertyEvents(
 				->
-					p = testModel.propertyNamesList.take(2).map((v) -> v.sort())
+					p = testModel.propertyNames.take(2).map((v) -> v.sort())
 					soon -> testModel.attributes.set({ three: 3 })
 					p
 				[ ['one', 'two'], ['one', 'three', 'two'] ])
@@ -204,10 +204,10 @@ describe "Eggs.Model", ->
 					p
 				[ 'one' ])
 
-		it "should NOT push initial propertyNamesList", ->
+		it "should NOT push initial propertyNames", ->
 			expectPropertyEvents(
 				->
-					p = testModel.propertyNamesList.take(1).map((v) -> v.sort())
+					p = testModel.propertyNames.take(1).map((v) -> v.sort())
 					soon -> testModel.attributes.set({ one: 'valid', two: 2 })
 					p
 				[ ['one', 'two'] ])

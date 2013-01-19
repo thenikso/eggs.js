@@ -47,7 +47,7 @@ Eggs.Model = class Model
 		@attributes.set = (value) -> setAttributesBus.push(value)
 
 		# The properties name list bus will receive arrays of the property names
-		propertyNamesListBus = new Bacon.Bus
+		propertyNamesBus = new Bacon.Bus
 
 		# Create properties. Properties are derived from validated attributes and
 		# each property will be decorated with a `set` method like `attributes`.
@@ -64,17 +64,17 @@ Eggs.Model = class Model
 		makeProperty(propertyName) for propertyName of attrs unless attrsInitialValidationError
 		
 		# Generates new properties when added to property names
-		generatedPropertiesBusses = propertyNamesListBus.map (propertyNames) ->
+		generatedPropertiesBusses = propertyNamesBus.map (propertyNames) ->
 			makeProperty(propertyName) for propertyName in propertyNames
 			propertiesBusses
 
 		# The accessible property names list will push after the propertyes 
 		# have been created.
-		@propertyNamesList = generatedPropertiesBusses.map((busses) -> _.keys(busses))
+		@propertyNames = generatedPropertiesBusses.map((busses) -> _.keys(busses))
 		unless attrsInitialValidationError
-			@propertyNamesList = @propertyNamesList.toProperty(_.keys(attrs))
+			@propertyNames = @propertyNames.toProperty(_.keys(attrs))
 		else
-			@propertyNamesList = @propertyNamesList.toProperty()
+			@propertyNames = @propertyNames.toProperty()
 
 		# The validation process starts by combining all the unchecked properties
 		# and pass them throught the validate method. Reflects on attributes.
@@ -91,11 +91,11 @@ Eggs.Model = class Model
 			else
 				if _.difference(_.keys(attrObject), _.keys(attrs)).length
 					attrs = attrObject
-					propertyNamesListBus.push(_.keys(attrs))
+					propertyNamesBus.push(_.keys(attrs))
 				validAttributesBus.push(attrs = attrObject)
 
 		# Setting 
-		propertyNamesListBus.push(_.keys(attrs))
+		propertyNamesBus.push(_.keys(attrs))
 
 		# Custom initialization
 		@initialize.apply(@, arguments)
