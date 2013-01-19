@@ -4,6 +4,90 @@
 
   Eggs = this.Eggs = {};
 
+  Eggs.Model = Model = (function() {
+
+    function Model(attributes, options) {
+      var attrs, attrsInitialValidationError, defaults, propertiesBusses, propertyDefault, propertyName, setAttributesBus, setPropertyBus, validAttributesBus,
+        _this = this;
+      options = _.defaults({
+        validate: true
+      }, options);
+      attrs = attributes || {};
+      if (defaults = _.result(this, 'defaults')) {
+        attrs = _.defaults({}, attrs, defaults);
+      }
+      attrsInitialValidationError = options.validate && (typeof this.validate === "function" ? this.validate(attrs) : void 0);
+      validAttributesBus = new Bacon.Bus;
+      if (!attrsInitialValidationError) {
+        this.attributes = validAttributesBus.toProperty(attrs);
+      } else {
+        this.attributes = validAttributesBus.toProperty();
+      }
+      setAttributesBus = new Bacon.Bus;
+      this.attributes.set = function(value) {
+        return setAttributesBus.push(value);
+      };
+      this.properties = {};
+      propertiesBusses = {};
+      for (propertyName in attrs) {
+        propertyDefault = attrs[propertyName];
+        this.properties[propertyName] = this.attributes.map("." + propertyName);
+        setPropertyBus = new Bacon.Bus;
+        this.properties[propertyName].set = function(value) {
+          return setPropertyBus.push(value);
+        };
+        propertiesBusses[propertyName] = setPropertyBus.toProperty(propertyDefault);
+      }
+      setAttributesBus.map(function(value) {
+        return _.defaults({}, value, attrs);
+      }).merge(Bacon.combineTemplate(propertiesBusses)).onValue(function(attrObject) {
+        var error;
+        if (_.isEqual(attrObject, attrs)) {
+          return;
+        }
+        if (options.validate && (error = typeof _this.validate === "function" ? _this.validate(attrObject) : void 0)) {
+          return validAttributesBus.error(error);
+        } else {
+          return validAttributesBus.push(attrs = attrObject);
+        }
+      });
+      this.initialize.apply(this, arguments);
+    }
+
+    Model.prototype.initialize = function() {};
+
+    return Model;
+
+  })();
+
+  Eggs.model = function(extension) {
+    var Surrogate, child, parent;
+    parent = Model;
+    if (extension && _.has(extension, 'constructor')) {
+      child = extension.constructor;
+    } else {
+      child = function() {
+        return parent.apply(this, arguments);
+      };
+    }
+    Surrogate = (function() {
+
+      function Surrogate() {
+        this.constructor = child;
+      }
+
+      return Surrogate;
+
+    })();
+    Surrogate.prototype = parent.prototype;
+    child.prototype = new Surrogate;
+    if (extension) {
+      _.extend(child.prototype, extension);
+    }
+    child.__super__ = parent.prototype;
+    return child;
+  };
+
   routeStripper = /^[#\/]|\s+$/g;
 
   Eggs.currentLocation = (function() {
@@ -66,83 +150,6 @@
     }).map(function(location) {
       return route.exec(location).slice(1);
     });
-  };
-
-  Model = (function() {
-
-    function Model(attributes, options) {
-      var attrs, bus, defaults, propertyDefault, propertyName,
-        _this = this;
-      options = _.defaults({
-        validate: true
-      }, options);
-      attrs = attributes || {};
-      if (defaults = _.result(this, 'defaults')) {
-        attrs = _.defaults({}, attrs, defaults);
-      }
-      this.busses = {};
-      this.uncheckedProperties = {};
-      for (propertyName in attrs) {
-        propertyDefault = attrs[propertyName];
-        this.busses[propertyName] = bus = new Bacon.Bus;
-        this.uncheckedProperties[propertyName] = bus.toProperty(propertyDefault);
-      }
-      this.attributesBus = new Bacon.Bus;
-      this.attributes = this.attributesBus.toProperty(attrs);
-      this.uncheckedAttributes = Bacon.combineTemplate(this.uncheckedProperties);
-      this.uncheckedAttributes.onValue(function(attrObject) {
-        var error;
-        if (options.validate && (error = typeof _this.validate === "function" ? _this.validate(attrObject) : void 0)) {
-          return _this.attributesBus.error(error);
-        } else {
-          return _this.attributesBus.push(attrObject);
-        }
-      });
-      this.properties = {};
-      for (propertyName in attrs) {
-        this.properties[propertyName] = this.attributes.map("." + propertyName);
-      }
-    }
-
-    Model.prototype.property = function(propertyName, value) {
-      var _ref;
-      if (_.isUndefined(value)) {
-        return this.properties[propertyName];
-      } else {
-        return (_ref = this.busses[propertyName]) != null ? _ref.push(value) : void 0;
-      }
-    };
-
-    return Model;
-
-  })();
-
-  Eggs.model = function(extension) {
-    var Surrogate, child, parent;
-    parent = Model;
-    if (extension && _.has(extension, 'constructor')) {
-      child = extension.constructor;
-    } else {
-      child = function() {
-        return parent.apply(this, arguments);
-      };
-    }
-    Surrogate = (function() {
-
-      function Surrogate() {
-        this.constructor = child;
-      }
-
-      return Surrogate;
-
-    })();
-    Surrogate.prototype = parent.prototype;
-    child.prototype = new Surrogate;
-    if (extension) {
-      _.extend(child.prototype, extension);
-    }
-    child.__super__ = parent.prototype;
-    return child;
   };
 
 }).call(this);

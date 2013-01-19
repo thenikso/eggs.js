@@ -3,7 +3,7 @@
 
   describe("Eggs environment", function() {
     return it("should have Eggs", function() {
-      return expect(Eggs).not.toBe(null);
+      return expect(Eggs).toBeDefined();
     });
   });
 
