@@ -315,10 +315,46 @@
           }
         ]);
       });
-      return it("should push initial property", function() {
+      it("should push initial property", function() {
         return expectPropertyEvents(function() {
           return testModel.properties.one.take(1);
         }, ['one']);
+      });
+      it("should push an error on validation fail", function() {
+        testModel.attributes.onError(function(err) {
+          return expect(err).toEqual({
+            error: 'invalid',
+            attributes: {
+              one: 1
+            }
+          });
+        });
+        return testModel.attributes.set({
+          one: 1
+        });
+      });
+      return it("should not validate if `shouldValidate` option is false", function() {
+        testModel = new TestModel({
+          one: 1
+        }, {
+          shouldValidate: false
+        });
+        return expectPropertyEvents(function() {
+          var p;
+          p = testModel.attributes.take(2);
+          soon(function() {
+            return testModel.attributes.set({
+              one: 2
+            });
+          });
+          return p;
+        }, [
+          {
+            one: 1
+          }, {
+            one: 2
+          }
+        ]);
       });
     });
     return describe("when invalid", function() {

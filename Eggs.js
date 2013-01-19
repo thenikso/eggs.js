@@ -9,9 +9,9 @@
     function Model(attributes, options) {
       var attrs, attrsInitialValidationError, defaults, generatedPropertiesBusses, makeProperty, propertiesBusses, propertyName, propertyNamesBus, setAttributesBus, validAttributesBus,
         _this = this;
-      options = _.defaults({
+      options = _.defaults({}, options, {
         shouldValidate: true
-      }, options);
+      });
       attrs = attributes || {};
       if (defaults = _.result(this, 'defaults')) {
         attrs = _.defaults({}, attrs, defaults);
@@ -72,7 +72,10 @@
           return;
         }
         if (options.shouldValidate && (error = typeof _this.validate === "function" ? _this.validate(attrObject) : void 0)) {
-          return validAttributesBus.error(error);
+          return validAttributesBus.error({
+            error: error,
+            attributes: attrObject
+          });
         } else {
           if (_.difference(_.keys(attrObject), _.keys(attrs)).length) {
             attrs = attrObject;

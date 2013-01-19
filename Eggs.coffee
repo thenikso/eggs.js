@@ -46,9 +46,9 @@ Eggs = @Eggs = {}
 # 	myModel.attributes.onValue (value) -> console.log(value)
 Eggs.Model = class Model
 	constructor: (attributes, options) ->
-		options = _.defaults({
+		options = _.defaults({}, options, {
 			shouldValidate: true
-		}, options)
+		})
 
 		# Get model instance attributes. `attrs` will keep the current attributes
 		# object within this method.
@@ -113,7 +113,7 @@ Eggs.Model = class Model
 			return if _.isEqual(attrObject, attrs)
 			# Validation pass
 			if options.shouldValidate and error = @validate?(attrObject)
-				validAttributesBus.error(error)
+				validAttributesBus.error({ error: error, attributes: attrObject })
 			else
 				if _.difference(_.keys(attrObject), _.keys(attrs)).length
 					attrs = attrObject

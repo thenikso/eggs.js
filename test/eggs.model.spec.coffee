@@ -175,6 +175,20 @@ describe "Eggs.Model", ->
 				-> testModel.properties.one.take(1),
 				[ 'one' ])
 
+		it "should push an error on validation fail", ->
+			testModel.attributes.onError (err) ->
+				expect(err).toEqual({ error: 'invalid', attributes: { one: 1 } })
+			testModel.attributes.set({ one: 1 })
+
+		it "should not validate if `shouldValidate` option is false", ->
+			testModel = new TestModel({ one: 1 }, { shouldValidate: false })
+			expectPropertyEvents(
+				->
+					p = testModel.attributes.take(2)
+					soon -> testModel.attributes.set({ one: 2 })
+					p
+				[ {one: 1}, {one: 2} ])
+			
 	describe "when invalid", ->
 
 		class TestModel extends Eggs.Model
