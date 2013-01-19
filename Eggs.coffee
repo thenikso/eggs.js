@@ -24,7 +24,8 @@ Eggs.Model = class Model
 			validate: true
 		}, options)
 
-		# Get model instance attributes
+		# Get model instance attributes. `attrs` will keep the current attributes
+		# object within this method.
 		attrs = attributes or {}
 		attrs = _.defaults({}, attrs, defaults) if defaults = _.result(@, 'defaults')
 
@@ -45,28 +46,56 @@ Eggs.Model = class Model
 		setAttributesBus = new Bacon.Bus
 		@attributes.set = (value) -> setAttributesBus.push(value)
 
+		# The properties name list bus will receive arrays of the property names
+		propertyNamesListBus = new Bacon.Bus
+
 		# Create properties. Properties are derived from validated attributes and
 		# each property will be decorated with a `set` method like `attributes`.
 		@properties = {}
 		propertiesBusses = {}
-		for propertyName, propertyDefault of attrs
-			@properties[propertyName] = @attributes.map(".#{propertyName}")
-			setPropertyBus = new Bacon.Bus
-			@properties[propertyName].set = (value) -> setPropertyBus.push(value)
-			propertiesBusses[propertyName] = setPropertyBus.toProperty(propertyDefault)
+		makeProperty = (propertyName) =>
+			unless @properties[propertyName]
+				@properties[propertyName] = @attributes.map(".#{propertyName}")
+				setPropertyBus = new Bacon.Bus
+				@properties[propertyName].set = (value) -> setPropertyBus.push(value)
+				propertiesBusses[propertyName] = setPropertyBus.toProperty(attrs[propertyName])
+
+		# Initial properties generation in case of valid attributes
+		makeProperty(propertyName) for propertyName of attrs unless attrsInitialValidationError
+		
+		# Generates new properties when added to property names
+		generatedPropertiesBusses = propertyNamesListBus.map (propertyNames) ->
+			makeProperty(propertyName) for propertyName in propertyNames
+			propertiesBusses
+
+		# The accessible property names list will push after the propertyes 
+		# have been created.
+		@propertyNamesList = generatedPropertiesBusses.map((busses) -> _.keys(busses))
+		unless attrsInitialValidationError
+			@propertyNamesList = @propertyNamesList.toProperty(_.keys(attrs))
+		else
+			@propertyNamesList = @propertyNamesList.toProperty()
 
 		# The validation process starts by combining all the unchecked properties
 		# and pass them throught the validate method. Reflects on attributes.
-		setAttributesBus.map (value) -> 
-			_.defaults({}, value, attrs)
-		.merge(Bacon.combineTemplate(propertiesBusses)).onValue (attrObject) =>
+		Bacon.mergeAll([
+			setAttributesBus.map (value) -> 
+				_.defaults({}, value, attrs)
+			generatedPropertiesBusses.flatMapLatest(Bacon.combineTemplate)
+		]).onValue (attrObject) =>
 			# Ignore update if equal to current state
 			return if _.isEqual(attrObject, attrs)
 			# Validation pass
 			if options.validate and error = @validate?(attrObject)
 				validAttributesBus.error(error)
 			else
+				if _.difference(_.keys(attrObject), _.keys(attrs)).length
+					attrs = attrObject
+					propertyNamesListBus.push(_.keys(attrs))
 				validAttributesBus.push(attrs = attrObject)
+
+		# Setting 
+		propertyNamesListBus.push(_.keys(attrs))
 
 		# Custom initialization
 		@initialize.apply(@, arguments)

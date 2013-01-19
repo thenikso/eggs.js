@@ -85,10 +85,41 @@
       it("should define `attributes` Bacon.Property", function() {
         return expect(testModel.attributes instanceof Bacon.Property).toBeTruthy();
       });
-      return it("should push an empty object form `attributes`", function() {
+      it("should push an empty object form `attributes`", function() {
         return expectPropertyEvents(function() {
           return testModel.attributes.take(1);
         }, [{}]);
+      });
+      it("should have a Bacon.Property as `propertyNamesList`", function() {
+        return expect(testModel.propertyNamesList instanceof Bacon.Property).toBeTruthy();
+      });
+      it("should add new attributes when setting `attributes`", function() {
+        return expectPropertyEvents(function() {
+          var p;
+          p = testModel.attributes.take(2);
+          soon(function() {
+            return testModel.attributes.set({
+              one: 1
+            });
+          });
+          return p;
+        }, [
+          {}, {
+            one: 1
+          }
+        ]);
+      });
+      return it("should add a new property to `propertyNamesList` when setting `attributes`", function() {
+        return expectPropertyEvents(function() {
+          var p;
+          p = testModel.propertyNamesList.take(2);
+          soon(function() {
+            return testModel.attributes.set({
+              one: 1
+            });
+          });
+          return p;
+        }, [[], ['one']]);
       });
     });
     describe("with default attributes", function() {
@@ -115,7 +146,7 @@
           two: 2
         });
       });
-      it("should have Bacon.Property as proerties", function() {
+      it("should have Bacon.Property as for each property in `proerties`", function() {
         expect(testModel.properties.one instanceof Bacon.Property).toBeTruthy();
         return expect(testModel.properties.two instanceof Bacon.Property).toBeTruthy();
       });
@@ -215,7 +246,7 @@
           }
         ]);
       });
-      return it("should NOT push a property if no changes", function() {
+      it("should NOT push a property if no changes", function() {
         return expectPropertyEvents(function() {
           var p;
           p = testModel.properties.one.take(2);
@@ -226,8 +257,29 @@
           return p;
         }, ['one', 1]);
       });
+      it("should have correct `propertyNamesList` names", function() {
+        return expectPropertyEvents(function() {
+          return testModel.propertyNamesList.take(1).map(function(v) {
+            return v.sort();
+          });
+        }, [['one', 'two']]);
+      });
+      return it("should add a new property", function() {
+        return expectPropertyEvents(function() {
+          var p;
+          p = testModel.propertyNamesList.take(2).map(function(v) {
+            return v.sort();
+          });
+          soon(function() {
+            return testModel.attributes.set({
+              three: 3
+            });
+          });
+          return p;
+        }, [['one', 'two'], ['one', 'three', 'two']]);
+      });
     });
-    return describe("with validation", function() {
+    describe("with validation", function() {
       var TestModel, testModel;
       TestModel = (function(_super) {
 
@@ -263,15 +315,42 @@
           }
         ]);
       });
-      it("should push initial property", function() {
+      return it("should push initial property", function() {
         return expectPropertyEvents(function() {
           return testModel.properties.one.take(1);
         }, ['one']);
       });
-      return it("should NOT push initial attributes if invalid", function() {
-        testModel = new TestModel({
+    });
+    return describe("when invalid", function() {
+      var TestModel, testModel;
+      TestModel = (function(_super) {
+
+        __extends(TestModel, _super);
+
+        function TestModel() {
+          return TestModel.__super__.constructor.apply(this, arguments);
+        }
+
+        TestModel.prototype.defaults = {
+          one: 'one'
+        };
+
+        TestModel.prototype.validate = function(attr) {
+          if (!_.isString(attr.one)) {
+            return "invalid";
+          }
+        };
+
+        return TestModel;
+
+      })(Eggs.Model);
+      testModel = null;
+      beforeEach(function() {
+        return testModel = new TestModel({
           one: 1
         });
+      });
+      it("should NOT push initial attributes if invalid", function() {
         return expectPropertyEvents(function() {
           var p;
           p = testModel.attributes.take(1);
@@ -286,6 +365,31 @@
             one: 'one'
           }
         ]);
+      });
+      it("should NOT push an initial property if invalid", function() {
+        return expectPropertyEvents(function() {
+          var p;
+          p = testModel.properties.one.take(1);
+          soon(function() {
+            return testModel.properties.one.set('one');
+          });
+          return p;
+        }, ['one']);
+      });
+      return it("should NOT push initial propertyNamesList", function() {
+        return expectPropertyEvents(function() {
+          var p;
+          p = testModel.propertyNamesList.take(1).map(function(v) {
+            return v.sort();
+          });
+          soon(function() {
+            return testModel.attributes.set({
+              one: 'valid',
+              two: 2
+            });
+          });
+          return p;
+        }, [['one', 'two']]);
       });
     });
   });

@@ -7,7 +7,7 @@
   Eggs.Model = Model = (function() {
 
     function Model(attributes, options) {
-      var attrs, attrsInitialValidationError, defaults, propertiesBusses, propertyDefault, propertyName, setAttributesBus, setPropertyBus, validAttributesBus,
+      var attrs, attrsInitialValidationError, defaults, generatedPropertiesBusses, makeProperty, propertiesBusses, propertyName, propertyNamesListBus, setAttributesBus, validAttributesBus,
         _this = this;
       options = _.defaults({
         validate: true
@@ -27,20 +27,46 @@
       this.attributes.set = function(value) {
         return setAttributesBus.push(value);
       };
+      propertyNamesListBus = new Bacon.Bus;
       this.properties = {};
       propertiesBusses = {};
-      for (propertyName in attrs) {
-        propertyDefault = attrs[propertyName];
-        this.properties[propertyName] = this.attributes.map("." + propertyName);
-        setPropertyBus = new Bacon.Bus;
-        this.properties[propertyName].set = function(value) {
-          return setPropertyBus.push(value);
-        };
-        propertiesBusses[propertyName] = setPropertyBus.toProperty(propertyDefault);
+      makeProperty = function(propertyName) {
+        var setPropertyBus;
+        if (!_this.properties[propertyName]) {
+          _this.properties[propertyName] = _this.attributes.map("." + propertyName);
+          setPropertyBus = new Bacon.Bus;
+          _this.properties[propertyName].set = function(value) {
+            return setPropertyBus.push(value);
+          };
+          return propertiesBusses[propertyName] = setPropertyBus.toProperty(attrs[propertyName]);
+        }
+      };
+      if (!attrsInitialValidationError) {
+        for (propertyName in attrs) {
+          makeProperty(propertyName);
+        }
       }
-      setAttributesBus.map(function(value) {
-        return _.defaults({}, value, attrs);
-      }).merge(Bacon.combineTemplate(propertiesBusses)).onValue(function(attrObject) {
+      generatedPropertiesBusses = propertyNamesListBus.map(function(propertyNames) {
+        var _i, _len;
+        for (_i = 0, _len = propertyNames.length; _i < _len; _i++) {
+          propertyName = propertyNames[_i];
+          makeProperty(propertyName);
+        }
+        return propertiesBusses;
+      });
+      this.propertyNamesList = generatedPropertiesBusses.map(function(busses) {
+        return _.keys(busses);
+      });
+      if (!attrsInitialValidationError) {
+        this.propertyNamesList = this.propertyNamesList.toProperty(_.keys(attrs));
+      } else {
+        this.propertyNamesList = this.propertyNamesList.toProperty();
+      }
+      Bacon.mergeAll([
+        setAttributesBus.map(function(value) {
+          return _.defaults({}, value, attrs);
+        }), generatedPropertiesBusses.flatMapLatest(Bacon.combineTemplate)
+      ]).onValue(function(attrObject) {
         var error;
         if (_.isEqual(attrObject, attrs)) {
           return;
@@ -48,9 +74,14 @@
         if (options.validate && (error = typeof _this.validate === "function" ? _this.validate(attrObject) : void 0)) {
           return validAttributesBus.error(error);
         } else {
+          if (_.difference(_.keys(attrObject), _.keys(attrs)).length) {
+            attrs = attrObject;
+            propertyNamesListBus.push(_.keys(attrs));
+          }
           return validAttributesBus.push(attrs = attrObject);
         }
       });
+      propertyNamesListBus.push(_.keys(attrs));
       this.initialize.apply(this, arguments);
     }
 

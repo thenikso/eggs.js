@@ -39,6 +39,26 @@ describe "Eggs.Model", ->
 				-> testModel.attributes.take(1)
 				[ {} ])
 
+		it "should have a Bacon.Property as `propertyNamesList`", ->
+			expect(testModel.propertyNamesList instanceof Bacon.Property).toBeTruthy()
+
+		it "should add new attributes when setting `attributes`", ->
+			expectPropertyEvents(
+				->
+					p = testModel.attributes.take(2)
+					soon -> testModel.attributes.set({ one: 1 })
+					p
+				[ {}, { one: 1 }])
+
+		it "should add a new property to `propertyNamesList` when setting `attributes`", ->
+			expectPropertyEvents(
+				->
+					p = testModel.propertyNamesList.take(2)
+					soon -> testModel.attributes.set({ one: 1 })
+					p
+				[ [], ['one'] ])
+
+
 	describe "with default attributes", ->
 		
 		class TestModel extends Eggs.Model
@@ -51,7 +71,7 @@ describe "Eggs.Model", ->
 		beforeEach ->
 			testModel = new TestModel two: 2
 
-		it "should have Bacon.Property as proerties", ->
+		it "should have Bacon.Property as for each property in `proerties`", ->
 			expect(testModel.properties.one instanceof Bacon.Property).toBeTruthy()
 			expect(testModel.properties.two instanceof Bacon.Property).toBeTruthy()
 
@@ -118,6 +138,19 @@ describe "Eggs.Model", ->
 						testModel.properties.one.set(1)
 					p
 				[ 'one', 1 ])
+
+		it "should have correct `propertyNamesList` names", ->
+			expectPropertyEvents(
+				-> testModel.propertyNamesList.take(1).map((v) -> v.sort())
+				[ ['one', 'two'] ])
+
+		it "should add a new property", ->
+			expectPropertyEvents(
+				->
+					p = testModel.propertyNamesList.take(2).map((v) -> v.sort())
+					soon -> testModel.attributes.set({ three: 3 })
+					p
+				[ ['one', 'two'], ['one', 'three', 'two'] ])
 		
 	describe "with validation", ->
 
@@ -142,14 +175,42 @@ describe "Eggs.Model", ->
 				-> testModel.properties.one.take(1),
 				[ 'one' ])
 
-		it "should NOT push initial attributes if invalid", ->
+	describe "when invalid", ->
+
+		class TestModel extends Eggs.Model
+				defaults:
+					one: 'one'
+				validate: (attr) ->
+					"invalid" unless _.isString(attr.one)
+
+		testModel = null
+
+		beforeEach ->
 			testModel = new TestModel one: 1
+
+		it "should NOT push initial attributes if invalid", ->
 			expectPropertyEvents(
 				-> 
 					p = testModel.attributes.take(1)
 					soon -> testModel.attributes.set({ one: 'one' })
 					p
 				[ { one: 'one' } ])
+
+		it "should NOT push an initial property if invalid", ->
+			expectPropertyEvents(
+				-> 
+					p = testModel.properties.one.take(1)
+					soon -> testModel.properties.one.set('one')
+					p
+				[ 'one' ])
+
+		it "should NOT push initial propertyNamesList", ->
+			expectPropertyEvents(
+				->
+					p = testModel.propertyNamesList.take(1).map((v) -> v.sort())
+					soon -> testModel.attributes.set({ one: 'valid', two: 2 })
+					p
+				[ ['one', 'two'] ])
 
 
 	
