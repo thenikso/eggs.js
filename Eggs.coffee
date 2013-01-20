@@ -61,13 +61,13 @@ Eggs.Model = class Model
 
 		# Initial validation. Attributes will not have an initial value
 		# if `attrs` are invalid.
-		attrsInitialValidationError = options.shouldValidate and @validate?(attrs)
+		attrsInitialValidationError = options.shouldValidate and @validate?(_.clone(attrs))
 
 		# The bus and relative Property that will send validated attributes
 		# and validation errors.
 		validAttributesBus = new Bacon.Bus
 		unless attrsInitialValidationError
-			validAttributesProperty = validAttributesBus.toProperty(attrs)
+			validAttributesProperty = validAttributesBus.toProperty(_.clone(attrs))
 		else
 			validAttributesProperty = validAttributesBus.toProperty()
 		validSingleAttributes = {}
@@ -96,7 +96,7 @@ Eggs.Model = class Model
 				attrsInitialValidationError = null
 				if _.difference(_.keys(attrObject), _.keys(attrs)).length
 					attributeNamesBus.push(_.keys(attrObject))
-				validAttributesBus.push(attrs = attrObject)
+				validAttributesBus.push(_.clone(attrs = attrObject))
 
 		# The main accessor to model attributes.
 		@attributes = (name, value) ->
@@ -120,7 +120,7 @@ Eggs.Model = class Model
 						if (_.difference(_.keys(attrs), _.keys(newAttrs)))
 							attrs = newAttrs
 							attributeNamesBus.push(_.keys(attrs))
-							validAttributesBus.push(attrs)
+							validAttributesBus.push(_.clone(attrs))
 				else if _.has(attrs, name)
 					setObject = {}
 					setObject[name] = value
@@ -134,7 +134,10 @@ Eggs.Model = class Model
 		# Custom initialization
 		@initialize.apply(@, arguments)
 
+	# Initialize could be used by subclasses to add their own model initialization
 	initialize: () ->
+
+
 
 
 Eggs.model = (extension) -> 

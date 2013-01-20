@@ -16,10 +16,10 @@
       if (defaults = _.result(this, 'defaults')) {
         attrs = _.defaults({}, attrs, defaults);
       }
-      attrsInitialValidationError = options.shouldValidate && (typeof this.validate === "function" ? this.validate(attrs) : void 0);
+      attrsInitialValidationError = options.shouldValidate && (typeof this.validate === "function" ? this.validate(_.clone(attrs)) : void 0);
       validAttributesBus = new Bacon.Bus;
       if (!attrsInitialValidationError) {
-        validAttributesProperty = validAttributesBus.toProperty(attrs);
+        validAttributesProperty = validAttributesBus.toProperty(_.clone(attrs));
       } else {
         validAttributesProperty = validAttributesBus.toProperty();
       }
@@ -48,7 +48,7 @@
           if (_.difference(_.keys(attrObject), _.keys(attrs)).length) {
             attributeNamesBus.push(_.keys(attrObject));
           }
-          return validAttributesBus.push(attrs = attrObject);
+          return validAttributesBus.push(_.clone(attrs = attrObject));
         }
       });
       this.attributes = function(name, value) {
@@ -78,7 +78,7 @@
               if (_.difference(_.keys(attrs), _.keys(newAttrs))) {
                 attrs = newAttrs;
                 attributeNamesBus.push(_.keys(attrs));
-                return validAttributesBus.push(attrs);
+                return validAttributesBus.push(_.clone(attrs));
               }
             }
           } else if (_.has(attrs, name)) {

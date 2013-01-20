@@ -64,7 +64,6 @@ describe "Eggs.Model", ->
 					p
 				[ [], ['one'] ])
 
-
 	describe "with default attributes", ->
 		
 		class TestModel extends Eggs.Model
@@ -138,6 +137,17 @@ describe "Eggs.Model", ->
 					p
 				[ 'one', 1 ])
 
+		it "should NOT allow returned attributes object to alter the model's attributes", ->
+			expectPropertyEvents(
+				->
+					p = testModel.attributeNames().take(2).map((v) -> v.sort())
+					soon ->
+						testModel.attributes().take(1).onValue((attr) ->
+							attr.three = 3
+							testModel.attributes(['two'], { unset: true }))
+					p
+				[ ['one', 'two'], ['one'] ])
+			
 		it "should have correct `attributeNames` names", ->
 			expectPropertyEvents(
 				-> testModel.attributeNames().take(1).map((v) -> v.sort())

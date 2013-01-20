@@ -256,6 +256,23 @@
           return p;
         }, ['one', 1]);
       });
+      it("should NOT allow returned attributes object to alter the model's attributes", function() {
+        return expectPropertyEvents(function() {
+          var p;
+          p = testModel.attributeNames().take(2).map(function(v) {
+            return v.sort();
+          });
+          soon(function() {
+            return testModel.attributes().take(1).onValue(function(attr) {
+              attr.three = 3;
+              return testModel.attributes(['two'], {
+                unset: true
+              });
+            });
+          });
+          return p;
+        }, [['one', 'two'], ['one']]);
+      });
       it("should have correct `attributeNames` names", function() {
         return expectPropertyEvents(function() {
           return testModel.attributeNames().take(1).map(function(v) {
