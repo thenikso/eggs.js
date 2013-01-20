@@ -140,16 +140,15 @@ describe "Eggs.Model", ->
 		it "should NOT allow returned attributes object to alter the model's attributes", ->
 			expectPropertyEvents(
 				->
-					p = testModel.attributeNames().take(3).map((v) -> v.sort())
+					p = testModel.attributeNames().take(4).map((v) -> v.sort())
 					soon ->
-						testModel.attributes().take(1).onValue((attr) ->
-							attr.three = 3
-							testModel.attributes({ four: 4 })
-							testModel.attributes().take(1).onValue((attr) ->
-								testModel.attributes(['two'], { unset: true }))
-							)
+						testModel.attributes().onValue((attr) ->
+							attr.three = 3)
+						testModel.attributes({ four: 4 })
+						testModel.attributes(['two'], { unset: true })
+						testModel.attributes(['one'], { unset: true })
 					p
-				[ ['one', 'two'], ['four', 'one', 'two'], ['four', 'one'] ])
+				[ ['one', 'two'], ['four', 'one', 'two'], ['four', 'one'], ['four'] ])
 			
 		it "should have correct `attributeNames` names", ->
 			expectPropertyEvents(

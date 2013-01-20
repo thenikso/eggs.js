@@ -140,6 +140,7 @@ Eggs.Model = class Model
 
 
 
+
 Eggs.model = (extension) -> 
 	parent = Model
 	if extension and _.has(extension, 'constructor')

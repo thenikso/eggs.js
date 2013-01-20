@@ -259,24 +259,25 @@
       it("should NOT allow returned attributes object to alter the model's attributes", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.attributeNames().take(3).map(function(v) {
+          p = testModel.attributeNames().take(4).map(function(v) {
             return v.sort();
           });
           soon(function() {
-            return testModel.attributes().take(1).onValue(function(attr) {
-              attr.three = 3;
-              testModel.attributes({
-                four: 4
-              });
-              return testModel.attributes().take(1).onValue(function(attr) {
-                return testModel.attributes(['two'], {
-                  unset: true
-                });
-              });
+            testModel.attributes().onValue(function(attr) {
+              return attr.three = 3;
+            });
+            testModel.attributes({
+              four: 4
+            });
+            testModel.attributes(['two'], {
+              unset: true
+            });
+            return testModel.attributes(['one'], {
+              unset: true
             });
           });
           return p;
-        }, [['one', 'two'], ['four', 'one', 'two'], ['four', 'one']]);
+        }, [['one', 'two'], ['four', 'one', 'two'], ['four', 'one'], ['four']]);
       });
       it("should have correct `attributeNames` names", function() {
         return expectPropertyEvents(function() {
