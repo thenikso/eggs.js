@@ -20,24 +20,26 @@ Eggs = @Eggs = {}
 # 	- `shouldValidate` defaults to `true` and indicates if the model isntance should
 # 		be validated.
 #
-# Instance members:
-# 	- `attributes` is a Bacon.Property that pushes an object containing all 
-# 		the model instance attributes after validation. 
-# 		A validation error object is pushed if the validation process failed.
-# 		The error object contains:
-# 			* `error`: the error message returned by the `validate` method
-# 			* `attributes`: the invalid attributes objec
-# 		`attributes` is decorated with:
-# 			* `set`: a method that accepts an object to update the model instance
-# 				attributes. This method can be used to add attributes to the model.
-# 	- `attribute` is an object that associate single attribute names with a 
-# 		Bacon.Property.
-# 		If, for example, the model has a `myAttribute` attribute, one can access it 
-# 		via `myModel.attribute.myAttribute`.
-# 		Each attribute object is decorated with:
-# 			* `set`: a method that can be used to set the signle attribute
-# 			* `unset`: a method that removes the attribute from the model
-# 	- `attributeNames` is a Bacon.Property that pushes an array with all the 
+# Instance methods:
+# 	- `attributes` is a multi-purpose method that executes various model's
+# 		attributes related operation depending on input parameters:
+# 		- *no parameters*: **gets** a Bacon.Property with model's attributes object;
+# 		- *name*: **gets**, if possible, a Bacon.Property for the single
+# 			attribute with the given name;
+# 		- *object*: **set** attributes by **add**ing or modifying the current ones;
+# 			if an attribute present in the model is not specified by the given object,
+# 			it will maintain it's current value. This will trigger the validation;
+# 		- *name string, value*: will **set** the single attribute with the given 
+# 			value if possible; this will trigger the validation process;
+# 		- *names array, options*: the options object can contain a boolean 
+# 			`unset` key, in which case attributes with the given names will be
+# 			**removed** from the model.
+# 		Both getter variants (no parameter, single string parameter) Bacon.Property
+# 		will also send validaton errors as an object having:
+# 			* `error`: the error message returned by the `validate` method;
+# 			* `attributes`: the invalid attributes object.
+#
+# 	- `attributeNames` returns a Bacon.Property that pushes an array with all the 
 # 		current valid attribute names in the model instance.
 #
 # Example Usage:
@@ -45,7 +47,7 @@ Eggs = @Eggs = {}
 # 		defaults: { myField: 'myFieldDefaultValue' }
 # 		validate: (attributes) -> "too short!" if attributes.myField.length < 3
 # 	myModel = new MyModel({ myOtherField: 2 })
-# 	myModel.attributes.onValue (value) -> console.log(value)
+# 	myModel.attributes().onValue (value) -> console.log(value)
 Eggs.Model = class Model
 	constructor: (attributes, options) ->
 		options = _.defaults({}, options, {
@@ -65,68 +67,69 @@ Eggs.Model = class Model
 		# and validation errors.
 		validAttributesBus = new Bacon.Bus
 		unless attrsInitialValidationError
-			@attributes = validAttributesBus.toProperty(attrs)
+			validAttributesProperty = validAttributesBus.toProperty(attrs)
 		else
-			@attributes = validAttributesBus.toProperty()
+			validAttributesProperty = validAttributesBus.toProperty()
+		validSingleAttributes = {}
 
-		# `attributes` will be decorated with a `set` method that will trigger
-		# the validation process and eventually push new validated attributes.
+		# The bus used to push un-validated attributes. This bus will be used to
+		# trigger the validation process.
 		setAttributesBus = new Bacon.Bus
-		@attributes.set = (value) -> setAttributesBus.push(value)
 
-		# The attribute names list bus will receive arrays of strings
+		# The attribute names list bus will receive arrays of strings containing
+		# all the model's attribute names.
 		attributeNamesBus = new Bacon.Bus
-
-		# Create single attributes. Properties are derived from validated 
-		# attributes and each attribute will be decorated with a `set` method
-		# and an `unset` method.
-		@attribute = {}
-		singleAttributesBusses = {}
-		makeSingleAttribute = (attributeName) =>
-			unless @attribute[attributeName]
-				@attribute[attributeName] = @attributes.map(".#{attributeName}")
-				setAttributeBus = new Bacon.Bus
-				@attribute[attributeName].set = (value) -> setAttributeBus.push(value)
-				singleAttributesBusses[attributeName] = setAttributeBus.toProperty(attrs[attributeName])
-
-		# Initial attribute generation in case of valid attributes
-		makeSingleAttribute(attributeName) for attributeName of attrs unless attrsInitialValidationError
-		
-		# Generates new attribute when added to attribute names
-		generatedSingleAttributeBusses = attributeNamesBus.map (attributeNames) ->
-			makeSingleAttribute(attributeName) for attributeName in attributeNames
-			singleAttributesBusses
-
-		# The accessible attribute names list will push after the signle attributes 
-		# have been created.
-		@attributeNames = generatedSingleAttributeBusses.map((busses) -> 
-			_.keys(busses))
 		unless attrsInitialValidationError
-			@attributeNames = @attributeNames.toProperty(_.keys(attrs))
+			attributeNamesProperty = attributeNamesBus.toProperty(_.keys(attrs))
 		else
-			@attributeNames = @attributeNames.toProperty()
+			attributeNamesProperty = attributeNamesBus.toProperty()
 
-		# The validation process starts by combining all the unchecked attribute
-		# and pass them throught the validate method. Reflects on attributes.
-		Bacon.mergeAll([
-			setAttributesBus.map (value) -> 
-				_.defaults({}, value, attrs)
-			generatedSingleAttributeBusses.flatMapLatest(Bacon.combineTemplate)
-		]).onValue (attrObject) =>
+		# The validation process will push values or errors to `validAttributeBus`.
+		setAttributesBus.map((value) -> 
+				_.defaults({}, value, attrs)).onValue (attrObject) =>
 			# Ignore update if equal to current state
 			return if _.isEqual(attrObject, attrs)
 			# Validation pass
 			if options.shouldValidate and error = @validate?(attrObject)
 				validAttributesBus.error({ error: error, attributes: attrObject })
 			else
+				attrsInitialValidationError = null
 				if _.difference(_.keys(attrObject), _.keys(attrs)).length
-					attrs = attrObject
-					attributeNamesBus.push(_.keys(attrs))
+					attributeNamesBus.push(_.keys(attrObject))
 				validAttributesBus.push(attrs = attrObject)
 
-		# This will start the reaction that eventually generates a template
-		# used to combine single attributes and validate them.
-		attributeNamesBus.push(_.keys(attrs))
+		# The main accessor to model attributes.
+		@attributes = (name, value) ->
+			return validAttributesProperty if arguments.length == 0
+			if arguments.length == 1
+				if _.isObject(name)
+					return setAttributesBus.push(name)
+				# TODO array case to merge attributes changes
+				else if _.has(attrs, name)
+					unless validAttributesProperty[name]
+						unless attrsInitialValidationError
+							validAttributesProperty[name] = validAttributesBus.map(".#{name}").toProperty(attrs[name])
+						else
+							validAttributesProperty[name] = validAttributesBus.map(".#{name}").toProperty()
+					return validAttributesProperty[name]	
+				else throw "Invalid attributes accessor: #{name}"
+			else
+				if _.isArray(name)
+					if value['unset']
+						newAttrs = _.omit(attrs, name)
+						if (_.difference(_.keys(attrs), _.keys(newAttrs)))
+							attrs = newAttrs
+							attributeNamesBus.push(_.keys(attrs))
+							validAttributesBus.push(attrs)
+				else if _.has(attrs, name)
+					setObject = {}
+					setObject[name] = value
+					return setAttributesBus.push(setObject)
+				else throw "Invalid attributes update: #{name}, #{value}"
+
+		# Accessor to property names Bacon.Property
+		@attributeNames = () ->
+			attributeNamesProperty
 
 		# Custom initialization
 		@initialize.apply(@, arguments)

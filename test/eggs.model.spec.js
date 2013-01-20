@@ -82,23 +82,29 @@
       beforeEach(function() {
         return testModel = new TestModel;
       });
-      it("should define `attributes` Bacon.Property", function() {
-        return expect(testModel.attributes instanceof Bacon.Property).toBeTruthy();
+      it("should have an `attributes()` method", function() {
+        return expect(_.isFunction(testModel.attributes)).toBeTruthy();
       });
-      it("should push an empty object form `attributes`", function() {
+      it("should return a Bacon.Property for `attributes()`", function() {
+        return expect(testModel.attributes() instanceof Bacon.Property).toBeTruthy();
+      });
+      it("should have an `attributes()` method", function() {
+        return expect(_.isFunction(testModel.attributeNames)).toBeTruthy();
+      });
+      it("should return a Bacon.Property for `attributeNames()`", function() {
+        return expect(testModel.attributeNames() instanceof Bacon.Property).toBeTruthy();
+      });
+      it("should push an empty object form `attributes()`", function() {
         return expectPropertyEvents(function() {
-          return testModel.attributes.take(1);
+          return testModel.attributes().take(1);
         }, [{}]);
       });
-      it("should have a Bacon.Property as `attributeNames`", function() {
-        return expect(testModel.attributeNames instanceof Bacon.Property).toBeTruthy();
-      });
-      it("should add new attributes when setting `attributes`", function() {
+      it("should add new attributes when setting `attributes()`", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.attributes.take(2);
+          p = testModel.attributes().take(2);
           soon(function() {
-            return testModel.attributes.set({
+            return testModel.attributes({
               one: 1
             });
           });
@@ -109,12 +115,12 @@
           }
         ]);
       });
-      return it("should add a new property to `attributeNames` when setting `attributes`", function() {
+      return it("should add a new property to `attributeNames` when setting `attributes()`", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.attributeNames.take(2);
+          p = testModel.attributeNames().take(2);
           soon(function() {
-            return testModel.attributes.set({
+            return testModel.attributes({
               one: 1
             });
           });
@@ -146,13 +152,13 @@
           two: 2
         });
       });
-      it("should have Bacon.Property as for each attribute in `attribute`", function() {
-        expect(testModel.attribute.one instanceof Bacon.Property).toBeTruthy();
-        return expect(testModel.attribute.two instanceof Bacon.Property).toBeTruthy();
+      it("should return Bacon.Property for each attribute in `attributes()`", function() {
+        expect(testModel.attributes('one') instanceof Bacon.Property).toBeTruthy();
+        return expect(testModel.attributes('two') instanceof Bacon.Property).toBeTruthy();
       });
       it("should push attributes", function() {
         return expectPropertyEvents(function() {
-          return testModel.attributes.take(1);
+          return testModel.attributes().take(1);
         }, [
           {
             one: 'one',
@@ -162,25 +168,18 @@
       });
       it("should push single attributes", function() {
         expectPropertyEvents(function() {
-          return testModel.attribute.one.take(1);
+          return testModel.attributes('one').take(1);
         }, ['one']);
         return expectPropertyEvents(function() {
-          return testModel.attribute.two.take(1);
+          return testModel.attributes('two').take(1);
         }, [2]);
-      });
-      it("should have `set` method for attributes", function() {
-        return expect(testModel.attributes.set).toBeDefined();
-      });
-      it("shuld have `set` method for single attributes", function() {
-        expect(testModel.attribute.one.set).toBeDefined();
-        return expect(testModel.attribute.two.set).toBeDefined();
       });
       it("should push attributes on attributes update", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.attributes.take(2);
+          p = testModel.attributes().take(2);
           soon(function() {
-            return testModel.attributes.set({
+            return testModel.attributes({
               one: 1
             });
           });
@@ -198,9 +197,9 @@
       it("should push single attributes when updated", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.attribute.one.take(2);
+          p = testModel.attributes('one').take(2);
           soon(function() {
-            return testModel.attribute.one.set(1);
+            return testModel.attributes('one', 1);
           });
           return p;
         }, ['one', 1]);
@@ -208,9 +207,9 @@
       it("should push attributes on single attributes update", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.attributes.take(2);
+          p = testModel.attributes().take(2);
           soon(function() {
-            return testModel.attribute.one.set(1);
+            return testModel.attributes('one', 1);
           });
           return p;
         }, [
@@ -226,12 +225,12 @@
       it("should NOT push attributes if nothing changed", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.attributes.take(2);
+          p = testModel.attributes().take(2);
           soon(function() {
-            testModel.attributes.set({
+            testModel.attributes({
               two: 2
             });
-            return testModel.attributes.set({
+            return testModel.attributes({
               one: 1
             });
           });
@@ -249,34 +248,48 @@
       it("should NOT push a single attribute if nothing changed", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.attribute.one.take(2);
+          p = testModel.attributes('one').take(2);
           soon(function() {
-            testModel.attribute.one.set('one');
-            return testModel.attribute.one.set(1);
+            testModel.attributes('one', 'one');
+            return testModel.attributes('one', 1);
           });
           return p;
         }, ['one', 1]);
       });
       it("should have correct `attributeNames` names", function() {
         return expectPropertyEvents(function() {
-          return testModel.attributeNames.take(1).map(function(v) {
+          return testModel.attributeNames().take(1).map(function(v) {
             return v.sort();
           });
         }, [['one', 'two']]);
       });
-      return it("should add a new attribute", function() {
+      it("should add a new attribute", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.attributeNames.take(2).map(function(v) {
+          p = testModel.attributeNames().take(2).map(function(v) {
             return v.sort();
           });
           soon(function() {
-            return testModel.attributes.set({
+            return testModel.attributes({
               three: 3
             });
           });
           return p;
         }, [['one', 'two'], ['one', 'three', 'two']]);
+      });
+      return it("should remove attributes", function() {
+        return expectPropertyEvents(function() {
+          var p;
+          p = testModel.attributeNames().take(2).map(function(v) {
+            return v.sort();
+          });
+          soon(function() {
+            return testModel.attributes(['two', 'one'], {
+              unset: true
+            });
+          });
+          return p;
+        }, [['one', 'two'], []]);
       });
     });
     describe("with validation", function() {
@@ -308,7 +321,7 @@
       });
       it("should push initial attributes", function() {
         return expectPropertyEvents(function() {
-          return testModel.attributes.take(1);
+          return testModel.attributes().take(1);
         }, [
           {
             one: 'one'
@@ -317,11 +330,11 @@
       });
       it("should push initial single attributes", function() {
         return expectPropertyEvents(function() {
-          return testModel.attribute.one.take(1);
+          return testModel.attributes('one').take(1);
         }, ['one']);
       });
       it("should push an error on validation fail", function() {
-        testModel.attributes.onError(function(err) {
+        testModel.attributes().onError(function(err) {
           return expect(err).toEqual({
             error: 'invalid',
             attributes: {
@@ -329,7 +342,7 @@
             }
           });
         });
-        return testModel.attributes.set({
+        return testModel.attributes({
           one: 1
         });
       });
@@ -341,9 +354,9 @@
         });
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.attributes.take(2);
+          p = testModel.attributes().take(2);
           soon(function() {
-            return testModel.attributes.set({
+            return testModel.attributes({
               one: 2
             });
           });
@@ -389,9 +402,9 @@
       it("should NOT push initial attributes if invalid", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.attributes.take(1);
+          p = testModel.attributes().take(1);
           soon(function() {
-            return testModel.attributes.set({
+            return testModel.attributes({
               one: 'one'
             });
           });
@@ -405,9 +418,9 @@
       it("should NOT push an initial single attributes if invalid", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.attribute.one.take(1);
+          p = testModel.attributes('one').take(1);
           soon(function() {
-            return testModel.attribute.one.set('one');
+            return testModel.attributes('one', 'one');
           });
           return p;
         }, ['one']);
@@ -415,11 +428,11 @@
       return it("should NOT push initial attributeNames", function() {
         return expectPropertyEvents(function() {
           var p;
-          p = testModel.attributeNames.take(1).map(function(v) {
+          p = testModel.attributeNames().take(1).map(function(v) {
             return v.sort();
           });
           soon(function() {
-            return testModel.attributes.set({
+            return testModel.attributes({
               one: 'valid',
               two: 2
             });

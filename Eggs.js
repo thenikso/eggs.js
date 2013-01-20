@@ -7,7 +7,7 @@
   Eggs.Model = Model = (function() {
 
     function Model(attributes, options) {
-      var attributeName, attributeNamesBus, attrs, attrsInitialValidationError, defaults, generatedSingleAttributeBusses, makeSingleAttribute, setAttributesBus, singleAttributesBusses, validAttributesBus,
+      var attributeNamesBus, attributeNamesProperty, attrs, attrsInitialValidationError, defaults, setAttributesBus, validAttributesBus, validAttributesProperty, validSingleAttributes,
         _this = this;
       options = _.defaults({}, options, {
         shouldValidate: true
@@ -19,54 +19,21 @@
       attrsInitialValidationError = options.shouldValidate && (typeof this.validate === "function" ? this.validate(attrs) : void 0);
       validAttributesBus = new Bacon.Bus;
       if (!attrsInitialValidationError) {
-        this.attributes = validAttributesBus.toProperty(attrs);
+        validAttributesProperty = validAttributesBus.toProperty(attrs);
       } else {
-        this.attributes = validAttributesBus.toProperty();
+        validAttributesProperty = validAttributesBus.toProperty();
       }
+      validSingleAttributes = {};
       setAttributesBus = new Bacon.Bus;
-      this.attributes.set = function(value) {
-        return setAttributesBus.push(value);
-      };
       attributeNamesBus = new Bacon.Bus;
-      this.attribute = {};
-      singleAttributesBusses = {};
-      makeSingleAttribute = function(attributeName) {
-        var setAttributeBus;
-        if (!_this.attribute[attributeName]) {
-          _this.attribute[attributeName] = _this.attributes.map("." + attributeName);
-          setAttributeBus = new Bacon.Bus;
-          _this.attribute[attributeName].set = function(value) {
-            return setAttributeBus.push(value);
-          };
-          return singleAttributesBusses[attributeName] = setAttributeBus.toProperty(attrs[attributeName]);
-        }
-      };
       if (!attrsInitialValidationError) {
-        for (attributeName in attrs) {
-          makeSingleAttribute(attributeName);
-        }
-      }
-      generatedSingleAttributeBusses = attributeNamesBus.map(function(attributeNames) {
-        var _i, _len;
-        for (_i = 0, _len = attributeNames.length; _i < _len; _i++) {
-          attributeName = attributeNames[_i];
-          makeSingleAttribute(attributeName);
-        }
-        return singleAttributesBusses;
-      });
-      this.attributeNames = generatedSingleAttributeBusses.map(function(busses) {
-        return _.keys(busses);
-      });
-      if (!attrsInitialValidationError) {
-        this.attributeNames = this.attributeNames.toProperty(_.keys(attrs));
+        attributeNamesProperty = attributeNamesBus.toProperty(_.keys(attrs));
       } else {
-        this.attributeNames = this.attributeNames.toProperty();
+        attributeNamesProperty = attributeNamesBus.toProperty();
       }
-      Bacon.mergeAll([
-        setAttributesBus.map(function(value) {
-          return _.defaults({}, value, attrs);
-        }), generatedSingleAttributeBusses.flatMapLatest(Bacon.combineTemplate)
-      ]).onValue(function(attrObject) {
+      setAttributesBus.map(function(value) {
+        return _.defaults({}, value, attrs);
+      }).onValue(function(attrObject) {
         var error;
         if (_.isEqual(attrObject, attrs)) {
           return;
@@ -77,14 +44,55 @@
             attributes: attrObject
           });
         } else {
+          attrsInitialValidationError = null;
           if (_.difference(_.keys(attrObject), _.keys(attrs)).length) {
-            attrs = attrObject;
-            attributeNamesBus.push(_.keys(attrs));
+            attributeNamesBus.push(_.keys(attrObject));
           }
           return validAttributesBus.push(attrs = attrObject);
         }
       });
-      attributeNamesBus.push(_.keys(attrs));
+      this.attributes = function(name, value) {
+        var newAttrs, setObject;
+        if (arguments.length === 0) {
+          return validAttributesProperty;
+        }
+        if (arguments.length === 1) {
+          if (_.isObject(name)) {
+            return setAttributesBus.push(name);
+          } else if (_.has(attrs, name)) {
+            if (!validAttributesProperty[name]) {
+              if (!attrsInitialValidationError) {
+                validAttributesProperty[name] = validAttributesBus.map("." + name).toProperty(attrs[name]);
+              } else {
+                validAttributesProperty[name] = validAttributesBus.map("." + name).toProperty();
+              }
+            }
+            return validAttributesProperty[name];
+          } else {
+            throw "Invalid attributes accessor: " + name;
+          }
+        } else {
+          if (_.isArray(name)) {
+            if (value['unset']) {
+              newAttrs = _.omit(attrs, name);
+              if (_.difference(_.keys(attrs), _.keys(newAttrs))) {
+                attrs = newAttrs;
+                attributeNamesBus.push(_.keys(attrs));
+                return validAttributesBus.push(attrs);
+              }
+            }
+          } else if (_.has(attrs, name)) {
+            setObject = {};
+            setObject[name] = value;
+            return setAttributesBus.push(setObject);
+          } else {
+            throw "Invalid attributes update: " + name + ", " + value;
+          }
+        }
+      };
+      this.attributeNames = function() {
+        return attributeNamesProperty;
+      };
       this.initialize.apply(this, arguments);
     }
 
