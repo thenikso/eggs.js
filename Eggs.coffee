@@ -29,14 +29,16 @@ Eggs = @Eggs = {}
 # 			* `attributes`: the invalid attributes objec
 # 		`attributes` is decorated with:
 # 			* `set`: a method that accepts an object to update the model instance
-# 				attributes. This method will create new properties if needed.
-# 	- `properties` is an object that associate property names with Bacon.Property.
-# 		If, for example, the model has a `myProperty` property, one can access it 
-# 		via `myModel.properties.myProperty`.
-# 		Each property object is decorated with:
-# 			* `set`: a method that can be used to set the signle property
-# 	- `propertyNames` is a Bacon.Property that pushes an array with all the 
-# 		available properties in the model instance.
+# 				attributes. This method can be used to add attributes to the model.
+# 	- `attribute` is an object that associate single attribute names with a 
+# 		Bacon.Property.
+# 		If, for example, the model has a `myAttribute` attribute, one can access it 
+# 		via `myModel.attribute.myAttribute`.
+# 		Each attribute object is decorated with:
+# 			* `set`: a method that can be used to set the signle attribute
+# 			* `unset`: a method that removes the attribute from the model
+# 	- `attributeNames` is a Bacon.Property that pushes an array with all the 
+# 		current valid attribute names in the model instance.
 #
 # Example Usage:
 # 	class MyModel extends Eggs.Model
@@ -55,11 +57,11 @@ Eggs.Model = class Model
 		attrs = attributes or {}
 		attrs = _.defaults({}, attrs, defaults) if defaults = _.result(@, 'defaults')
 
-		# Initial validation. Attributes and properties will not have an initial value
-		# if attrs are invalid.
+		# Initial validation. Attributes will not have an initial value
+		# if `attrs` are invalid.
 		attrsInitialValidationError = options.shouldValidate and @validate?(attrs)
 
-		# The bus and relative property that will send validated attributes
+		# The bus and relative Property that will send validated attributes
 		# and validation errors.
 		validAttributesBus = new Bacon.Bus
 		unless attrsInitialValidationError
@@ -72,42 +74,44 @@ Eggs.Model = class Model
 		setAttributesBus = new Bacon.Bus
 		@attributes.set = (value) -> setAttributesBus.push(value)
 
-		# The properties name list bus will receive arrays of the property names
-		propertyNamesBus = new Bacon.Bus
+		# The attribute names list bus will receive arrays of strings
+		attributeNamesBus = new Bacon.Bus
 
-		# Create properties. Properties are derived from validated attributes and
-		# each property will be decorated with a `set` method like `attributes`.
-		@properties = {}
-		propertiesBusses = {}
-		makeProperty = (propertyName) =>
-			unless @properties[propertyName]
-				@properties[propertyName] = @attributes.map(".#{propertyName}")
-				setPropertyBus = new Bacon.Bus
-				@properties[propertyName].set = (value) -> setPropertyBus.push(value)
-				propertiesBusses[propertyName] = setPropertyBus.toProperty(attrs[propertyName])
+		# Create single attributes. Properties are derived from validated 
+		# attributes and each attribute will be decorated with a `set` method
+		# and an `unset` method.
+		@attribute = {}
+		singleAttributesBusses = {}
+		makeSingleAttribute = (attributeName) =>
+			unless @attribute[attributeName]
+				@attribute[attributeName] = @attributes.map(".#{attributeName}")
+				setAttributeBus = new Bacon.Bus
+				@attribute[attributeName].set = (value) -> setAttributeBus.push(value)
+				singleAttributesBusses[attributeName] = setAttributeBus.toProperty(attrs[attributeName])
 
-		# Initial properties generation in case of valid attributes
-		makeProperty(propertyName) for propertyName of attrs unless attrsInitialValidationError
+		# Initial attribute generation in case of valid attributes
+		makeSingleAttribute(attributeName) for attributeName of attrs unless attrsInitialValidationError
 		
-		# Generates new properties when added to property names
-		generatedPropertiesBusses = propertyNamesBus.map (propertyNames) ->
-			makeProperty(propertyName) for propertyName in propertyNames
-			propertiesBusses
+		# Generates new attribute when added to attribute names
+		generatedSingleAttributeBusses = attributeNamesBus.map (attributeNames) ->
+			makeSingleAttribute(attributeName) for attributeName in attributeNames
+			singleAttributesBusses
 
-		# The accessible property names list will push after the propertyes 
+		# The accessible attribute names list will push after the signle attributes 
 		# have been created.
-		@propertyNames = generatedPropertiesBusses.map((busses) -> _.keys(busses))
+		@attributeNames = generatedSingleAttributeBusses.map((busses) -> 
+			_.keys(busses))
 		unless attrsInitialValidationError
-			@propertyNames = @propertyNames.toProperty(_.keys(attrs))
+			@attributeNames = @attributeNames.toProperty(_.keys(attrs))
 		else
-			@propertyNames = @propertyNames.toProperty()
+			@attributeNames = @attributeNames.toProperty()
 
-		# The validation process starts by combining all the unchecked properties
+		# The validation process starts by combining all the unchecked attribute
 		# and pass them throught the validate method. Reflects on attributes.
 		Bacon.mergeAll([
 			setAttributesBus.map (value) -> 
 				_.defaults({}, value, attrs)
-			generatedPropertiesBusses.flatMapLatest(Bacon.combineTemplate)
+			generatedSingleAttributeBusses.flatMapLatest(Bacon.combineTemplate)
 		]).onValue (attrObject) =>
 			# Ignore update if equal to current state
 			return if _.isEqual(attrObject, attrs)
@@ -117,12 +121,12 @@ Eggs.Model = class Model
 			else
 				if _.difference(_.keys(attrObject), _.keys(attrs)).length
 					attrs = attrObject
-					propertyNamesBus.push(_.keys(attrs))
+					attributeNamesBus.push(_.keys(attrs))
 				validAttributesBus.push(attrs = attrObject)
 
 		# This will start the reaction that eventually generates a template
-		# used to combine single propertyes and validate them.
-		propertyNamesBus.push(_.keys(attrs))
+		# used to combine single attributes and validate them.
+		attributeNamesBus.push(_.keys(attrs))
 
 		# Custom initialization
 		@initialize.apply(@, arguments)

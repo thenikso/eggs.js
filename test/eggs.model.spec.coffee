@@ -39,8 +39,8 @@ describe "Eggs.Model", ->
 				-> testModel.attributes.take(1)
 				[ {} ])
 
-		it "should have a Bacon.Property as `propertyNames`", ->
-			expect(testModel.propertyNames instanceof Bacon.Property).toBeTruthy()
+		it "should have a Bacon.Property as `attributeNames`", ->
+			expect(testModel.attributeNames instanceof Bacon.Property).toBeTruthy()
 
 		it "should add new attributes when setting `attributes`", ->
 			expectPropertyEvents(
@@ -50,10 +50,10 @@ describe "Eggs.Model", ->
 					p
 				[ {}, { one: 1 }])
 
-		it "should add a new property to `propertyNames` when setting `attributes`", ->
+		it "should add a new property to `attributeNames` when setting `attributes`", ->
 			expectPropertyEvents(
 				->
-					p = testModel.propertyNames.take(2)
+					p = testModel.attributeNames.take(2)
 					soon -> testModel.attributes.set({ one: 1 })
 					p
 				[ [], ['one'] ])
@@ -71,29 +71,29 @@ describe "Eggs.Model", ->
 		beforeEach ->
 			testModel = new TestModel two: 2
 
-		it "should have Bacon.Property as for each property in `proerties`", ->
-			expect(testModel.properties.one instanceof Bacon.Property).toBeTruthy()
-			expect(testModel.properties.two instanceof Bacon.Property).toBeTruthy()
+		it "should have Bacon.Property as for each attribute in `attribute`", ->
+			expect(testModel.attribute.one instanceof Bacon.Property).toBeTruthy()
+			expect(testModel.attribute.two instanceof Bacon.Property).toBeTruthy()
 
 		it "should push attributes", ->
 			expectPropertyEvents(
 				-> testModel.attributes.take(1),
 				[ { one: 'one', two: 2 } ])
 
-		it "should push properties", ->
+		it "should push single attributes", ->
 			expectPropertyEvents(
-				-> testModel.properties.one.take(1)
+				-> testModel.attribute.one.take(1)
 				[ 'one' ])
 			expectPropertyEvents(
-				-> testModel.properties.two.take(1)
+				-> testModel.attribute.two.take(1)
 				[ 2 ])
 
 		it "should have `set` method for attributes", ->
 			expect(testModel.attributes.set).toBeDefined()
 
-		it "shuld have `set` method for properties", ->
-			expect(testModel.properties.one.set).toBeDefined()
-			expect(testModel.properties.two.set).toBeDefined()
+		it "shuld have `set` method for single attributes", ->
+			expect(testModel.attribute.one.set).toBeDefined()
+			expect(testModel.attribute.two.set).toBeDefined()
 
 		it "should push attributes on attributes update", ->
 			expectPropertyEvents(
@@ -103,23 +103,23 @@ describe "Eggs.Model", ->
 					p
 				[ { one: 'one', two: 2 }, { one: 1, two: 2 } ])
 
-		it "should push property on property update", ->
+		it "should push single attributes when updated", ->
 			expectPropertyEvents(
 				-> 
-					p = testModel.properties.one.take(2)
-					soon -> testModel.properties.one.set(1)
+					p = testModel.attribute.one.take(2)
+					soon -> testModel.attribute.one.set(1)
 					p
 				[ 'one', 1 ])
 
-		it "should push attributes on property update", ->
+		it "should push attributes on single attributes update", ->
 			expectPropertyEvents(
 				-> 
 					p = testModel.attributes.take(2)
-					soon -> testModel.properties.one.set(1)
+					soon -> testModel.attribute.one.set(1)
 					p
 				[ { one: 'one', two: 2 }, { one: 1, two: 2 } ])
 
-		it "should NOT push attributes if no changes", ->
+		it "should NOT push attributes if nothing changed", ->
 			expectPropertyEvents(
 				->
 					p = testModel.attributes.take(2)
@@ -129,25 +129,25 @@ describe "Eggs.Model", ->
 					p
 				[ { one: 'one', two: 2 }, { one: 1, two: 2 } ])
 
-		it "should NOT push a property if no changes", ->
+		it "should NOT push a single attribute if nothing changed", ->
 			expectPropertyEvents(
 				->
-					p = testModel.properties.one.take(2)
+					p = testModel.attribute.one.take(2)
 					soon ->
-						testModel.properties.one.set('one')
-						testModel.properties.one.set(1)
+						testModel.attribute.one.set('one')
+						testModel.attribute.one.set(1)
 					p
 				[ 'one', 1 ])
 
-		it "should have correct `propertyNames` names", ->
+		it "should have correct `attributeNames` names", ->
 			expectPropertyEvents(
-				-> testModel.propertyNames.take(1).map((v) -> v.sort())
+				-> testModel.attributeNames.take(1).map((v) -> v.sort())
 				[ ['one', 'two'] ])
 
-		it "should add a new property", ->
+		it "should add a new attribute", ->
 			expectPropertyEvents(
 				->
-					p = testModel.propertyNames.take(2).map((v) -> v.sort())
+					p = testModel.attributeNames.take(2).map((v) -> v.sort())
 					soon -> testModel.attributes.set({ three: 3 })
 					p
 				[ ['one', 'two'], ['one', 'three', 'two'] ])
@@ -170,9 +170,9 @@ describe "Eggs.Model", ->
 				-> testModel.attributes.take(1),
 				[ { one: 'one' } ])
 
-		it "should push initial property", ->
+		it "should push initial single attributes", ->
 			expectPropertyEvents(
-				-> testModel.properties.one.take(1),
+				-> testModel.attribute.one.take(1),
 				[ 'one' ])
 
 		it "should push an error on validation fail", ->
@@ -210,18 +210,18 @@ describe "Eggs.Model", ->
 					p
 				[ { one: 'one' } ])
 
-		it "should NOT push an initial property if invalid", ->
+		it "should NOT push an initial single attributes if invalid", ->
 			expectPropertyEvents(
 				-> 
-					p = testModel.properties.one.take(1)
-					soon -> testModel.properties.one.set('one')
+					p = testModel.attribute.one.take(1)
+					soon -> testModel.attribute.one.set('one')
 					p
 				[ 'one' ])
 
-		it "should NOT push initial propertyNames", ->
+		it "should NOT push initial attributeNames", ->
 			expectPropertyEvents(
 				->
-					p = testModel.propertyNames.take(1).map((v) -> v.sort())
+					p = testModel.attributeNames.take(1).map((v) -> v.sort())
 					soon -> testModel.attributes.set({ one: 'valid', two: 2 })
 					p
 				[ ['one', 'two'] ])

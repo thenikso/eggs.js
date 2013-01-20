@@ -7,7 +7,7 @@
   Eggs.Model = Model = (function() {
 
     function Model(attributes, options) {
-      var attrs, attrsInitialValidationError, defaults, generatedPropertiesBusses, makeProperty, propertiesBusses, propertyName, propertyNamesBus, setAttributesBus, validAttributesBus,
+      var attributeName, attributeNamesBus, attrs, attrsInitialValidationError, defaults, generatedSingleAttributeBusses, makeSingleAttribute, setAttributesBus, singleAttributesBusses, validAttributesBus,
         _this = this;
       options = _.defaults({}, options, {
         shouldValidate: true
@@ -27,45 +27,45 @@
       this.attributes.set = function(value) {
         return setAttributesBus.push(value);
       };
-      propertyNamesBus = new Bacon.Bus;
-      this.properties = {};
-      propertiesBusses = {};
-      makeProperty = function(propertyName) {
-        var setPropertyBus;
-        if (!_this.properties[propertyName]) {
-          _this.properties[propertyName] = _this.attributes.map("." + propertyName);
-          setPropertyBus = new Bacon.Bus;
-          _this.properties[propertyName].set = function(value) {
-            return setPropertyBus.push(value);
+      attributeNamesBus = new Bacon.Bus;
+      this.attribute = {};
+      singleAttributesBusses = {};
+      makeSingleAttribute = function(attributeName) {
+        var setAttributeBus;
+        if (!_this.attribute[attributeName]) {
+          _this.attribute[attributeName] = _this.attributes.map("." + attributeName);
+          setAttributeBus = new Bacon.Bus;
+          _this.attribute[attributeName].set = function(value) {
+            return setAttributeBus.push(value);
           };
-          return propertiesBusses[propertyName] = setPropertyBus.toProperty(attrs[propertyName]);
+          return singleAttributesBusses[attributeName] = setAttributeBus.toProperty(attrs[attributeName]);
         }
       };
       if (!attrsInitialValidationError) {
-        for (propertyName in attrs) {
-          makeProperty(propertyName);
+        for (attributeName in attrs) {
+          makeSingleAttribute(attributeName);
         }
       }
-      generatedPropertiesBusses = propertyNamesBus.map(function(propertyNames) {
+      generatedSingleAttributeBusses = attributeNamesBus.map(function(attributeNames) {
         var _i, _len;
-        for (_i = 0, _len = propertyNames.length; _i < _len; _i++) {
-          propertyName = propertyNames[_i];
-          makeProperty(propertyName);
+        for (_i = 0, _len = attributeNames.length; _i < _len; _i++) {
+          attributeName = attributeNames[_i];
+          makeSingleAttribute(attributeName);
         }
-        return propertiesBusses;
+        return singleAttributesBusses;
       });
-      this.propertyNames = generatedPropertiesBusses.map(function(busses) {
+      this.attributeNames = generatedSingleAttributeBusses.map(function(busses) {
         return _.keys(busses);
       });
       if (!attrsInitialValidationError) {
-        this.propertyNames = this.propertyNames.toProperty(_.keys(attrs));
+        this.attributeNames = this.attributeNames.toProperty(_.keys(attrs));
       } else {
-        this.propertyNames = this.propertyNames.toProperty();
+        this.attributeNames = this.attributeNames.toProperty();
       }
       Bacon.mergeAll([
         setAttributesBus.map(function(value) {
           return _.defaults({}, value, attrs);
-        }), generatedPropertiesBusses.flatMapLatest(Bacon.combineTemplate)
+        }), generatedSingleAttributeBusses.flatMapLatest(Bacon.combineTemplate)
       ]).onValue(function(attrObject) {
         var error;
         if (_.isEqual(attrObject, attrs)) {
@@ -79,12 +79,12 @@
         } else {
           if (_.difference(_.keys(attrObject), _.keys(attrs)).length) {
             attrs = attrObject;
-            propertyNamesBus.push(_.keys(attrs));
+            attributeNamesBus.push(_.keys(attrs));
           }
           return validAttributesBus.push(attrs = attrObject);
         }
       });
-      propertyNamesBus.push(_.keys(attrs));
+      attributeNamesBus.push(_.keys(attrs));
       this.initialize.apply(this, arguments);
     }
 
