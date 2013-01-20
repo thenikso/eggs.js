@@ -49,6 +49,12 @@ Eggs = @Eggs = {}
 # 	myModel = new MyModel({ myOtherField: 2 })
 # 	myModel.attributes().onValue (value) -> console.log(value)
 Eggs.Model = class Model
+
+	# The default attribute name for linking the model with the database.
+	# MongoDB and CouchDB users may want to set this to `"_id"`
+	idAttribute: 'id'
+
+	# The model constructor will generate `attributes` and `attributeNames` method.
 	constructor: (attributes, options) ->
 		options = _.defaults({}, options, {
 			shouldValidate: true
@@ -135,10 +141,27 @@ Eggs.Model = class Model
 		@initialize.apply(@, arguments)
 
 	# Initialize could be used by subclasses to add their own model initialization
-	initialize: () ->
+	initialize: ->
 
+	# Returns a Bacon.Property pushing the id of the model or null if the model 
+	# is new. This method uses `idAttribute` to determine which attribute is the id.
+	id: -> 
+		@attributes().map (attr) =>
+			attr[@idAttribute]
 
+	# Returns a Bacon.Property that updates with the URL for synching the model.
+	# This methos uses `urlRoot` to compute the URL.
+	url: ->
+		@id().map (id) =>
+			base = _.result(@, 'urlRoot') or throw new Error("Expecting `urlRoot` to be defined")
+			base = base.substring(0, base.length - 1) if base.charAt(base.length - 1) is '/'
+			return "#{base}/#{encodeURIComponent(id)}" if id
+			base
 
+	# This method will initiate an AJAX request to fetch the model's data form the
+	# server.
+	# Returns a Bacon.EventStream derived from the AJAX request promise.
+	fetch: ->
 
 
 Eggs.model = (extension) -> 

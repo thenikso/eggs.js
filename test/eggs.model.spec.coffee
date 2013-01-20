@@ -1,5 +1,10 @@
 describe "Eggs.Model", ->
 
+	emptyTestModel = null
+
+	beforeEach ->
+		emptyTestModel = new Eggs.Model
+
 	it "should exists", ->
 		expect(Eggs.Model).toBeDefined()
 
@@ -22,6 +27,28 @@ describe "Eggs.Model", ->
 		testModel = new TestModel({}, { one: 1 })
 		expect(testModel.one).toEqual(1)
 
+	it "should have an `attributes` method returning a Bacon.Property", ->
+		expect(_.isFunction(emptyTestModel.attributes)).toBeTruthy()
+		expect(emptyTestModel.attributes() instanceof Bacon.Property).toBeTruthy()
+
+	it "should have an `attributeNames` method returning a Bacon.Property", ->
+		expect(_.isFunction(emptyTestModel.attributeNames)).toBeTruthy()
+		expect(emptyTestModel.attributeNames() instanceof Bacon.Property).toBeTruthy()
+
+	it "should have an `idAttribute` property equal to 'id'", ->
+		expect(emptyTestModel.idAttribute).toEqual('id')
+
+	it "should have an `id` method returning a Bacon.Property", ->
+		expect(_.isFunction(emptyTestModel.id)).toBeTruthy()
+		expect(emptyTestModel.id() instanceof Bacon.Property).toBeTruthy()		
+
+	it "should have an `url` method returning a Bacon.Property", ->
+		expect(_.isFunction(emptyTestModel.url)).toBeTruthy()
+		expect(emptyTestModel.url() instanceof Bacon.Property).toBeTruthy()		
+
+	it "should have a `fetch` method", ->
+		expect(_.isFunction(emptyTestModel.fetch)).toBeTruthy()
+
 	describe "without attributes", () ->
 
 		class TestModel extends Eggs.Model
@@ -30,18 +57,6 @@ describe "Eggs.Model", ->
 
 		beforeEach ->
 			testModel = new TestModel
-
-		it "should have an `attributes()` method", ->
-			expect(_.isFunction(testModel.attributes)).toBeTruthy()
-
-		it "should return a Bacon.Property for `attributes()`", ->
-			expect(testModel.attributes() instanceof Bacon.Property).toBeTruthy()
-
-		it "should have an `attributes()` method", ->
-			expect(_.isFunction(testModel.attributeNames)).toBeTruthy()
-
-		it "should return a Bacon.Property for `attributeNames()`", ->
-			expect(testModel.attributeNames() instanceof Bacon.Property).toBeTruthy()
 
 		it "should push an empty object form `attributes()`", ->
 			expectPropertyEvents(
@@ -63,6 +78,11 @@ describe "Eggs.Model", ->
 					soon -> testModel.attributes({ one: 1 })
 					p
 				[ [], ['one'] ])
+
+		it "should push `undefined` for `id()`", ->
+			expectPropertyEvents(
+				-> testModel.id().take(1)
+				[ undefined ])
 
 	describe "with default attributes", ->
 		
@@ -244,6 +264,40 @@ describe "Eggs.Model", ->
 					soon -> testModel.attributes({ one: 'valid', two: 2 })
 					p
 				[ ['one', 'two'] ])
+
+	describe "synching", ->
+
+		class TestModel extends Eggs.Model
+			defaults:
+				id: 1
+				one: 'one'
+				two: 'two'
+			urlRoot: 'testurl/'
+
+		testModel = null
+
+		beforeEach ->
+			testModel = new TestModel
+
+		it "should push the correct id", ->
+			expectPropertyEvents(
+				-> testModel.id().take(1)
+				[ 1 ])
+
+		it "should push the correct url", ->
+			expectPropertyEvents(
+				-> 
+					p = testModel.url().take(2)
+					soon ->
+						testModel.attributes([ 'id' ], { unset: true })
+					p
+				[ 'testurl/1', 'testurl' ])
+
+
+
+
+
+		
 
 
 	

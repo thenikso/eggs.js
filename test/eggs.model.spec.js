@@ -4,6 +4,11 @@
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
   describe("Eggs.Model", function() {
+    var emptyTestModel;
+    emptyTestModel = null;
+    beforeEach(function() {
+      return emptyTestModel = new Eggs.Model;
+    });
     it("should exists", function() {
       return expect(Eggs.Model).toBeDefined();
     });
@@ -65,6 +70,28 @@
       });
       return expect(testModel.one).toEqual(1);
     });
+    it("should have an `attributes` method returning a Bacon.Property", function() {
+      expect(_.isFunction(emptyTestModel.attributes)).toBeTruthy();
+      return expect(emptyTestModel.attributes() instanceof Bacon.Property).toBeTruthy();
+    });
+    it("should have an `attributeNames` method returning a Bacon.Property", function() {
+      expect(_.isFunction(emptyTestModel.attributeNames)).toBeTruthy();
+      return expect(emptyTestModel.attributeNames() instanceof Bacon.Property).toBeTruthy();
+    });
+    it("should have an `idAttribute` property equal to 'id'", function() {
+      return expect(emptyTestModel.idAttribute).toEqual('id');
+    });
+    it("should have an `id` method returning a Bacon.Property", function() {
+      expect(_.isFunction(emptyTestModel.id)).toBeTruthy();
+      return expect(emptyTestModel.id() instanceof Bacon.Property).toBeTruthy();
+    });
+    it("should have an `url` method returning a Bacon.Property", function() {
+      expect(_.isFunction(emptyTestModel.url)).toBeTruthy();
+      return expect(emptyTestModel.url() instanceof Bacon.Property).toBeTruthy();
+    });
+    it("should have a `fetch` method", function() {
+      return expect(_.isFunction(emptyTestModel.fetch)).toBeTruthy();
+    });
     describe("without attributes", function() {
       var TestModel, testModel;
       TestModel = (function(_super) {
@@ -81,18 +108,6 @@
       testModel = null;
       beforeEach(function() {
         return testModel = new TestModel;
-      });
-      it("should have an `attributes()` method", function() {
-        return expect(_.isFunction(testModel.attributes)).toBeTruthy();
-      });
-      it("should return a Bacon.Property for `attributes()`", function() {
-        return expect(testModel.attributes() instanceof Bacon.Property).toBeTruthy();
-      });
-      it("should have an `attributes()` method", function() {
-        return expect(_.isFunction(testModel.attributeNames)).toBeTruthy();
-      });
-      it("should return a Bacon.Property for `attributeNames()`", function() {
-        return expect(testModel.attributeNames() instanceof Bacon.Property).toBeTruthy();
       });
       it("should push an empty object form `attributes()`", function() {
         return expectPropertyEvents(function() {
@@ -115,7 +130,7 @@
           }
         ]);
       });
-      return it("should add a new property to `attributeNames` when setting `attributes()`", function() {
+      it("should add a new property to `attributeNames` when setting `attributes()`", function() {
         return expectPropertyEvents(function() {
           var p;
           p = testModel.attributeNames().take(2);
@@ -126,6 +141,11 @@
           });
           return p;
         }, [[], ['one']]);
+      });
+      return it("should push `undefined` for `id()`", function() {
+        return expectPropertyEvents(function() {
+          return testModel.id().take(1);
+        }, [void 0]);
       });
     });
     describe("with default attributes", function() {
@@ -393,7 +413,7 @@
         ]);
       });
     });
-    return describe("when invalid", function() {
+    describe("when invalid", function() {
       var TestModel, testModel;
       TestModel = (function(_super) {
 
@@ -462,6 +482,49 @@
           });
           return p;
         }, [['one', 'two']]);
+      });
+    });
+    return describe("synching", function() {
+      var TestModel, testModel;
+      TestModel = (function(_super) {
+
+        __extends(TestModel, _super);
+
+        function TestModel() {
+          return TestModel.__super__.constructor.apply(this, arguments);
+        }
+
+        TestModel.prototype.defaults = {
+          id: 1,
+          one: 'one',
+          two: 'two'
+        };
+
+        TestModel.prototype.urlRoot = 'testurl/';
+
+        return TestModel;
+
+      })(Eggs.Model);
+      testModel = null;
+      beforeEach(function() {
+        return testModel = new TestModel;
+      });
+      it("should push the correct id", function() {
+        return expectPropertyEvents(function() {
+          return testModel.id().take(1);
+        }, [1]);
+      });
+      return it("should push the correct url", function() {
+        return expectPropertyEvents(function() {
+          var p;
+          p = testModel.url().take(2);
+          soon(function() {
+            return testModel.attributes(['id'], {
+              unset: true
+            });
+          });
+          return p;
+        }, ['testurl/1', 'testurl']);
       });
     });
   });

@@ -6,6 +6,8 @@
 
   Eggs.Model = Model = (function() {
 
+    Model.prototype.idAttribute = 'id';
+
     function Model(attributes, options) {
       var attributeNamesBus, attributeNamesProperty, attrs, attrsInitialValidationError, defaults, setAttributesBus, validAttributesBus, validAttributesProperty, validSingleAttributes,
         _this = this;
@@ -97,6 +99,32 @@
     }
 
     Model.prototype.initialize = function() {};
+
+    Model.prototype.id = function() {
+      var _this = this;
+      return this.attributes().map(function(attr) {
+        return attr[_this.idAttribute];
+      });
+    };
+
+    Model.prototype.url = function() {
+      var _this = this;
+      return this.id().map(function(id) {
+        var base;
+        base = _.result(_this, 'urlRoot') || (function() {
+          throw new Error("Expecting `urlRoot` to be defined");
+        })();
+        if (base.charAt(base.length - 1) === '/') {
+          base = base.substring(0, base.length - 1);
+        }
+        if (id) {
+          return "" + base + "/" + (encodeURIComponent(id));
+        }
+        return base;
+      });
+    };
+
+    Model.prototype.fetch = function() {};
 
     return Model;
 
