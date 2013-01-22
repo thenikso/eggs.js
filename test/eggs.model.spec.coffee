@@ -49,6 +49,9 @@ describe "Eggs.Model", ->
 	it "should have a `fetch` method", ->
 		expect(_.isFunction(emptyTestModel.fetch)).toBeTruthy()
 
+	it "should have a `save` method", ->
+		expect(_.isFunction(emptyTestModel.save)).toBeTruthy()
+
 	describe "without attributes", () ->
 
 		class TestModel extends Eggs.Model
@@ -136,6 +139,11 @@ describe "Eggs.Model", ->
 					soon -> testModel.attributes('one', 1)
 					p
 				[ { one: 'one', two: 2 }, { one: 1, two: 2 } ])
+
+		it "should push updated attributes from attributes set call", ->
+			expectPropertyEvents(
+				-> testModel.attributes({ one: 1 }).take(1)
+				[ { one: 1, two: 2 } ])
 
 		it "should NOT push attributes if nothing changed", ->
 			expectPropertyEvents(
@@ -267,6 +275,28 @@ describe "Eggs.Model", ->
 
 	describe "synching", ->
 
+		origAjax = window.$.ajax
+		ajaxMock = (options) ->
+			d = new jQuery.Deferred
+			setTimeout(
+				->
+					if options.type is 'GET'
+						if options.url.indexOf('testurl/1') >= 0
+							console.log 'GET OK'
+							d.resolve { id: 1, one: 1, two: 2, three: 'three' }
+						else
+							console.log 'GET ERROR'
+							d.reject "ajax read error"
+					else
+						if options.data?.id == 1
+							console.log 'PUT OK'
+							d.resolve { id: 1 }
+						else
+							console.log 'PUT ERROR'
+							d.reject "ajax save error"
+				300)
+			d.promise()
+
 		class TestModel extends Eggs.Model
 			defaults:
 				id: 1
@@ -277,7 +307,11 @@ describe "Eggs.Model", ->
 		testModel = null
 
 		beforeEach ->
+			window.$.ajax = ajaxMock
 			testModel = new TestModel
+
+		afterEach ->
+			window.$.ajax = origAjax
 
 		it "should push the correct id", ->
 			expectPropertyEvents(
@@ -292,6 +326,11 @@ describe "Eggs.Model", ->
 						testModel.attributes([ 'id' ], { unset: true })
 					p
 				[ 'testurl/1', 'testurl' ])
+
+		it "should correctly fetch data", ->
+			expectStreamEvents(
+				-> testModel.fetch().take(1)
+				[ { id: 1, one: 1, two: 2, three: 'three' } ])
 
 
 

@@ -78,6 +78,10 @@ Eggs.Model = class Model
 			validAttributesProperty = validAttributesBus.toProperty()
 		validSingleAttributes = {}
 
+		# Subscribe on an empty function to activate the property so that it will
+		# always be current.
+		validAttributesProperty.onValue ->
+
 		# The bus used to push un-validated attributes. This bus will be used to
 		# trigger the validation process.
 		setAttributesBus = new Bacon.Bus
@@ -109,7 +113,8 @@ Eggs.Model = class Model
 			return validAttributesProperty if arguments.length == 0
 			if arguments.length == 1
 				if _.isObject(name)
-					return setAttributesBus.push(name)
+					setAttributesBus.push(name)
+					return validAttributesProperty
 				# TODO array case to merge attributes changes
 				else if _.has(attrs, name)
 					unless validAttributesProperty[name]
@@ -146,22 +151,49 @@ Eggs.Model = class Model
 	# Returns a Bacon.Property pushing the id of the model or null if the model 
 	# is new. This method uses `idAttribute` to determine which attribute is the id.
 	id: -> 
-		@attributes().map (attr) =>
+		@_id or= @attributes().map (attr) =>
 			attr[@idAttribute]
 
 	# Returns a Bacon.Property that updates with the URL for synching the model.
 	# This methos uses `urlRoot` to compute the URL.
 	url: ->
-		@id().map (id) =>
+		@_url or= @id().map (id) =>
 			base = _.result(@, 'urlRoot') or throw new Error("Expecting `urlRoot` to be defined")
 			base = base.substring(0, base.length - 1) if base.charAt(base.length - 1) is '/'
 			return "#{base}/#{encodeURIComponent(id)}" if id
 			base
 
-	# This method will initiate an AJAX request to fetch the model's data form the
-	# server.
-	# Returns a Bacon.EventStream derived from the AJAX request promise.
+	# Initiates an AJAX request to fetch the model's data form the server.
+	# Returns a Bacon.EventStream that will send the updated attributes once
+	# they have been set to the model.
 	fetch: ->
+		@url()
+		.take(1)
+		.flatMap((url) ->
+			Bacon.fromPromise $.ajax
+				type: 'GET'
+				dataType: 'json'
+				url: url)
+		.flatMap((result) =>
+			@attributes(result))
+
+	# Initiates an AJAX request that sends the model's attributes to the server.
+	# Returns a Bacon.EventStream derived from the AJAX request promise.
+	# TODO options (updateModel, ...)
+	save: ->
+		Bacon.combineAsArray(@url(), @attributes())
+		.take(1)
+		.flatMap((info) =>
+			[url, attributes] = info
+			Bacon.fromPromise $.ajax
+				type: if attributes[@idAttribute] then 'PUT' else 'POST'
+				dataType: 'json'
+				processData: false
+				url: url
+				data: attributes)
+		.flatMap((result) =>
+			@attributes(result))
+
 
 
 Eggs.model = (extension) -> 
@@ -183,7 +215,45 @@ Eggs.model = (extension) ->
 
 
 
-
+Eggs.ReplayBus = class ReplayBus extends Bacon.EventStream
+	constructor: (@replayCount) ->
+		sink = undefined
+		unsubFuncs = []
+		inputs = []
+		ended = false
+		guardedSink = (input) => (event) =>
+			if (event.isEnd())
+				remove(input, inputs)
+				Bacon.noMore
+			else
+				sink event
+		unsubAll = => 
+			f() for f in unsubFuncs
+			unsubFuncs = []
+		subscribeAll = (newSink) =>
+			sink = newSink
+			unsubFuncs = []
+			for input in cloneArray(inputs)
+				unsubFuncs.push(input.subscribe(guardedSink(input)))
+			unsubAll
+		dispatcher = new Dispatcher(subscribeAll)
+		subscribeThis = (sink) =>
+			console.log "will subscribe #{sink}"
+			dispatcher.subscribe(sink)
+		super(subscribeThis)
+		@plug = (inputStream) =>
+			return if ended
+			inputs.push(inputStream)
+			if (sink?)
+				unsubFuncs.push(inputStream.subscribe(guardedSink(inputStream)))
+		@push = (value) =>
+			sink next(value) if sink?
+		@error = (error) =>
+			sink new Error(error) if sink?
+		@end = =>
+			ended = true
+			unsubAll()
+			sink end() if sink?
 
 
 routeStripper = /^[#\/]|\s+$/g

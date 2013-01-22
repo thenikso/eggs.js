@@ -92,6 +92,9 @@
     it("should have a `fetch` method", function() {
       return expect(_.isFunction(emptyTestModel.fetch)).toBeTruthy();
     });
+    it("should have a `save` method", function() {
+      return expect(_.isFunction(emptyTestModel.save)).toBeTruthy();
+    });
     describe("without attributes", function() {
       var TestModel, testModel;
       TestModel = (function(_super) {
@@ -237,6 +240,18 @@
             one: 'one',
             two: 2
           }, {
+            one: 1,
+            two: 2
+          }
+        ]);
+      });
+      it("should push updated attributes from attributes set call", function() {
+        return expectPropertyEvents(function() {
+          return testModel.attributes({
+            one: 1
+          }).take(1);
+        }, [
+          {
             one: 1,
             two: 2
           }
@@ -485,7 +500,40 @@
       });
     });
     return describe("synching", function() {
-      var TestModel, testModel;
+      var TestModel, ajaxMock, origAjax, testModel;
+      origAjax = window.$.ajax;
+      ajaxMock = function(options) {
+        var d;
+        d = new jQuery.Deferred;
+        setTimeout(function() {
+          var _ref;
+          if (options.type === 'GET') {
+            if (options.url.indexOf('testurl/1') >= 0) {
+              console.log('GET OK');
+              return d.resolve({
+                id: 1,
+                one: 1,
+                two: 2,
+                three: 'three'
+              });
+            } else {
+              console.log('GET ERROR');
+              return d.reject("ajax read error");
+            }
+          } else {
+            if (((_ref = options.data) != null ? _ref.id : void 0) === 1) {
+              console.log('PUT OK');
+              return d.resolve({
+                id: 1
+              });
+            } else {
+              console.log('PUT ERROR');
+              return d.reject("ajax save error");
+            }
+          }
+        }, 300);
+        return d.promise();
+      };
       TestModel = (function(_super) {
 
         __extends(TestModel, _super);
@@ -507,14 +555,18 @@
       })(Eggs.Model);
       testModel = null;
       beforeEach(function() {
+        window.$.ajax = ajaxMock;
         return testModel = new TestModel;
+      });
+      afterEach(function() {
+        return window.$.ajax = origAjax;
       });
       it("should push the correct id", function() {
         return expectPropertyEvents(function() {
           return testModel.id().take(1);
         }, [1]);
       });
-      return it("should push the correct url", function() {
+      it("should push the correct url", function() {
         return expectPropertyEvents(function() {
           var p;
           p = testModel.url().take(2);
@@ -525,6 +577,18 @@
           });
           return p;
         }, ['testurl/1', 'testurl']);
+      });
+      return it("should correctly fetch data", function() {
+        return expectStreamEvents(function() {
+          return testModel.fetch().take(1);
+        }, [
+          {
+            id: 1,
+            one: 1,
+            two: 2,
+            three: 'three'
+          }
+        ]);
       });
     });
   });
