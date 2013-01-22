@@ -74,6 +74,10 @@
       expect(_.isFunction(emptyTestModel.attributes)).toBeTruthy();
       return expect(emptyTestModel.attributes() instanceof Bacon.Property).toBeTruthy();
     });
+    it("should have an `unset` method returning a Bacon.Property", function() {
+      expect(_.isFunction(emptyTestModel.unset)).toBeTruthy();
+      return expect(emptyTestModel.unset() instanceof Bacon.Property).toBeTruthy();
+    });
     it("should have an `attributeNames` method returning a Bacon.Property", function() {
       expect(_.isFunction(emptyTestModel.attributeNames)).toBeTruthy();
       return expect(emptyTestModel.attributeNames() instanceof Bacon.Property).toBeTruthy();
@@ -527,30 +531,48 @@
         var d;
         d = new jQuery.Deferred;
         setTimeout(function() {
-          var _ref;
-          if (options.type === 'GET') {
-            if (options.url.indexOf('testurl/1') >= 0) {
-              console.log('GET OK');
-              return d.resolve({
-                id: 1,
-                one: 1,
-                two: 2,
-                three: 'three'
-              });
-            } else {
-              console.log('GET ERROR');
-              return d.reject("ajax read error");
-            }
-          } else {
-            if (((_ref = options.data) != null ? _ref.id : void 0) === 1) {
-              console.log('PUT OK');
-              return d.resolve({
-                id: 1
-              });
-            } else {
-              console.log('PUT ERROR');
-              return d.reject("ajax save error");
-            }
+          var _ref, _ref1;
+          switch (options.type) {
+            case 'GET':
+              if (options.url.indexOf('testurl/1') >= 0) {
+                console.log('GET OK');
+                return d.resolve({
+                  id: 1,
+                  one: 1,
+                  two: 2,
+                  three: 'three'
+                });
+              } else {
+                console.log('GET ERROR');
+                return d.reject("ajax read error");
+              }
+              break;
+            case 'PUT':
+              if (((_ref = options.data) != null ? _ref.id : void 0) === 1) {
+                console.log('PUT OK');
+                return d.resolve({
+                  id: 1
+                });
+              } else {
+                console.log('PUT ERROR');
+                return d.reject("ajax save error");
+              }
+              break;
+            case 'POST':
+              if (options.url.indexOf('/1') < 0 && !(((_ref1 = options.data) != null ? _ref1.id : void 0) != null)) {
+                console.log('POST OK');
+                return d.resolve({
+                  id: 2,
+                  one: 'one',
+                  two: 'two'
+                });
+              } else {
+                console.log('POST ERROR');
+                return d.reject("ajax create error");
+              }
+              break;
+            default:
+              return d.reject("ajax invalid request");
           }
         }, 300);
         return d.promise();
@@ -599,7 +621,7 @@
           return p;
         }, ['testurl/1', 'testurl']);
       });
-      return it("should correctly fetch data", function() {
+      it("should correctly fetch data", function() {
         return expectStreamEvents(function() {
           return testModel.fetch().take(1);
         }, [
@@ -608,6 +630,17 @@
             one: 1,
             two: 2,
             three: 'three'
+          }
+        ]);
+      });
+      return it("should correctly update the model on save if id is set", function() {
+        return expectStreamEvents(function() {
+          return testModel.save().take(1);
+        }, [
+          {
+            id: 1,
+            one: 'one',
+            two: 'two'
           }
         ]);
       });

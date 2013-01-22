@@ -106,6 +106,15 @@
 
     Model.prototype.initialize = function() {};
 
+    Model.prototype.unset = function(attrNames) {
+      if (!_.isArray(attrNames)) {
+        attrNames = [attrNames];
+      }
+      return this.attributes(attrNames, {
+        unset: true
+      });
+    };
+
     Model.prototype.id = function() {
       var _this = this;
       return this._id || (this._id = this.attributes().map(function(attr) {

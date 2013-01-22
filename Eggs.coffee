@@ -150,6 +150,12 @@ Eggs.Model = class Model
 	# Initialize could be used by subclasses to add their own model initialization
 	initialize: ->
 
+	# Unset the given attributes in the model. The parameter can either be a string
+	# with the name of the attribute to unset, or an array of names.
+	unset: (attrNames) ->
+		attrNames = [attrNames] unless _.isArray(attrNames)
+		@attributes(attrNames, { unset: true })
+
 	# Returns a Bacon.Property pushing the id of the model or null if the model 
 	# is new. This method uses `idAttribute` to determine which attribute is the id.
 	id: -> 

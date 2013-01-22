@@ -31,6 +31,10 @@ describe "Eggs.Model", ->
 		expect(_.isFunction(emptyTestModel.attributes)).toBeTruthy()
 		expect(emptyTestModel.attributes() instanceof Bacon.Property).toBeTruthy()
 
+	it "should have an `unset` method returning a Bacon.Property", ->
+		expect(_.isFunction(emptyTestModel.unset)).toBeTruthy()
+		expect(emptyTestModel.unset() instanceof Bacon.Property).toBeTruthy()		
+
 	it "should have an `attributeNames` method returning a Bacon.Property", ->
 		expect(_.isFunction(emptyTestModel.attributeNames)).toBeTruthy()
 		expect(emptyTestModel.attributeNames() instanceof Bacon.Property).toBeTruthy()
@@ -290,20 +294,30 @@ describe "Eggs.Model", ->
 			d = new jQuery.Deferred
 			setTimeout(
 				->
-					if options.type is 'GET'
-						if options.url.indexOf('testurl/1') >= 0
-							console.log 'GET OK'
-							d.resolve { id: 1, one: 1, two: 2, three: 'three' }
-						else
-							console.log 'GET ERROR'
-							d.reject "ajax read error"
-					else
-						if options.data?.id == 1
-							console.log 'PUT OK'
-							d.resolve { id: 1 }
-						else
-							console.log 'PUT ERROR'
-							d.reject "ajax save error"
+					switch options.type 
+						when 'GET'
+							if options.url.indexOf('testurl/1') >= 0
+								console.log 'GET OK'
+								d.resolve { id: 1, one: 1, two: 2, three: 'three' }
+							else
+								console.log 'GET ERROR'
+								d.reject "ajax read error"
+						when 'PUT'
+							if options.data?.id == 1
+								console.log 'PUT OK'
+								d.resolve { id: 1 }
+							else
+								console.log 'PUT ERROR'
+								d.reject "ajax save error"
+						when 'POST'
+							if options.url.indexOf('/1') < 0 and not options.data?.id?
+								console.log 'POST OK'
+								d.resolve { id: 2, one: 'one', two: 'two' }
+							else
+								console.log 'POST ERROR'
+								d.reject "ajax create error"
+						else 
+							d.reject "ajax invalid request"
 				300)
 			d.promise()
 
@@ -341,6 +355,11 @@ describe "Eggs.Model", ->
 			expectStreamEvents(
 				-> testModel.fetch().take(1)
 				[ { id: 1, one: 1, two: 2, three: 'three' } ])
+
+		it "should correctly update the model on save if id is set", ->
+			expectStreamEvents(
+				-> testModel.save().take(1)
+				[ { id: 1, one: 'one', two: 'two' } ])
 
 
 
