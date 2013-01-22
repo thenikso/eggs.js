@@ -297,28 +297,22 @@ describe "Eggs.Model", ->
 					switch options.type 
 						when 'GET'
 							if options.url.indexOf('testurl/1') >= 0
-								console.log 'GET OK'
 								d.resolve { id: 1, one: 1, two: 2, three: 'three' }
 							else
-								console.log 'GET ERROR'
 								d.reject "ajax read error"
 						when 'PUT'
 							if options.data?.id == 1
-								console.log 'PUT OK'
 								d.resolve { id: 1 }
 							else
-								console.log 'PUT ERROR'
 								d.reject "ajax save error"
 						when 'POST'
 							if options.url.indexOf('/1') < 0 and not options.data?.id?
-								console.log 'POST OK'
 								d.resolve { id: 2, one: 'one', two: 'two' }
 							else
-								console.log 'POST ERROR'
 								d.reject "ajax create error"
 						else 
 							d.reject "ajax invalid request"
-				300)
+				200)
 			d.promise()
 
 		class TestModel extends Eggs.Model
@@ -361,6 +355,15 @@ describe "Eggs.Model", ->
 				-> testModel.save().take(1)
 				[ { id: 1, one: 'one', two: 'two' } ])
 
+		it "should correctly save the model if id is not set", ->
+			expectStreamEvents(
+				-> testModel.unset('id').take(1).flatMap -> testModel.save().take(1)
+				[ { id: 2, one: 'one', two: 'two' } ])
+
+		it "should forward ajax error on fetch", ->
+			expectStreamEvents(
+				-> testModel.attributes('id', 2).take(1).flatMap -> testModel.fetch().take(1)
+				[ error() ])
 
 
 

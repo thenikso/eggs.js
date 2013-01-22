@@ -535,7 +535,6 @@
           switch (options.type) {
             case 'GET':
               if (options.url.indexOf('testurl/1') >= 0) {
-                console.log('GET OK');
                 return d.resolve({
                   id: 1,
                   one: 1,
@@ -543,38 +542,33 @@
                   three: 'three'
                 });
               } else {
-                console.log('GET ERROR');
                 return d.reject("ajax read error");
               }
               break;
             case 'PUT':
               if (((_ref = options.data) != null ? _ref.id : void 0) === 1) {
-                console.log('PUT OK');
                 return d.resolve({
                   id: 1
                 });
               } else {
-                console.log('PUT ERROR');
                 return d.reject("ajax save error");
               }
               break;
             case 'POST':
               if (options.url.indexOf('/1') < 0 && !(((_ref1 = options.data) != null ? _ref1.id : void 0) != null)) {
-                console.log('POST OK');
                 return d.resolve({
                   id: 2,
                   one: 'one',
                   two: 'two'
                 });
               } else {
-                console.log('POST ERROR');
                 return d.reject("ajax create error");
               }
               break;
             default:
               return d.reject("ajax invalid request");
           }
-        }, 300);
+        }, 200);
         return d.promise();
       };
       TestModel = (function(_super) {
@@ -633,7 +627,7 @@
           }
         ]);
       });
-      return it("should correctly update the model on save if id is set", function() {
+      it("should correctly update the model on save if id is set", function() {
         return expectStreamEvents(function() {
           return testModel.save().take(1);
         }, [
@@ -643,6 +637,26 @@
             two: 'two'
           }
         ]);
+      });
+      it("should correctly save the model if id is not set", function() {
+        return expectStreamEvents(function() {
+          return testModel.unset('id').take(1).flatMap(function() {
+            return testModel.save().take(1);
+          });
+        }, [
+          {
+            id: 2,
+            one: 'one',
+            two: 'two'
+          }
+        ]);
+      });
+      return it("should forward ajax error on fetch", function() {
+        return expectStreamEvents(function() {
+          return testModel.attributes('id', 2).take(1).flatMap(function() {
+            return testModel.fetch().take(1);
+          });
+        }, [error()]);
       });
     });
   });
