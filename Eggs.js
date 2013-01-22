@@ -84,13 +84,15 @@
               if (_.difference(_.keys(attrs), _.keys(newAttrs))) {
                 attrs = newAttrs;
                 attributeNamesBus.push(_.keys(attrs));
-                return validAttributesBus.push(_.clone(attrs));
+                validAttributesBus.push(_.clone(attrs));
               }
+              return validAttributesProperty;
             }
           } else if (_.has(attrs, name)) {
             setObject = {};
             setObject[name] = value;
-            return setAttributesBus.push(setObject);
+            setAttributesBus.push(setObject);
+            return validAttributesProperty;
           } else {
             throw "Invalid attributes update: " + name + ", " + value;
           }

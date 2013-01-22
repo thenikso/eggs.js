@@ -257,6 +257,27 @@
           }
         ]);
       });
+      it("should push updated attributes from single attributes set call", function() {
+        return expectPropertyEvents(function() {
+          return testModel.attributes('one', 1).take(1);
+        }, [
+          {
+            one: 1,
+            two: 2
+          }
+        ]);
+      });
+      it("should push updated attributes from attributes unset call", function() {
+        return expectPropertyEvents(function() {
+          return testModel.attributes(['one'], {
+            unset: true
+          }).take(1);
+        }, [
+          {
+            two: 2
+          }
+        ]);
+      });
       it("should NOT push attributes if nothing changed", function() {
         return expectPropertyEvents(function() {
           var p;

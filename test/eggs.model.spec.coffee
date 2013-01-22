@@ -145,6 +145,16 @@ describe "Eggs.Model", ->
 				-> testModel.attributes({ one: 1 }).take(1)
 				[ { one: 1, two: 2 } ])
 
+		it "should push updated attributes from single attributes set call", ->
+			expectPropertyEvents(
+				-> testModel.attributes('one', 1).take(1)
+				[ { one: 1, two: 2 } ])
+
+		it "should push updated attributes from attributes unset call", ->
+			expectPropertyEvents(
+				-> testModel.attributes([ 'one' ], { unset: true }).take(1)
+				[ { two: 2 } ])
+
 		it "should NOT push attributes if nothing changed", ->
 			expectPropertyEvents(
 				->
