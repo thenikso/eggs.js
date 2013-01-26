@@ -156,6 +156,10 @@ Eggs.Model = class Model
 					return validAttributesProperty
 				else throw "Invalid attributes update: #{name}, #{value}"
 
+		# Will indicate if the current set of attributes is valid.
+		@valid = ->
+			@_valid or= validAttributesBus.map(true).toProperty(not attrsInitialValidationError?)
+
 		# Custom initialization
 		@initialize.apply(@, arguments)
 

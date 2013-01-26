@@ -27,6 +27,9 @@ describe "Eggs.Model", ->
 		testModel = new TestModel({}, { one: 1 })
 		expect(testModel.one).toEqual(1)
 
+	it "should have an `idAttribute` property equal to 'id'", ->
+		expect(emptyTestModel.idAttribute).toEqual('id')
+
 	it "should have an `attributes` method returning a Bacon.Property", ->
 		expect(_.isFunction(emptyTestModel.attributes)).toBeTruthy()
 		expect(emptyTestModel.attributes() instanceof Bacon.Property).toBeTruthy()
@@ -37,25 +40,6 @@ describe "Eggs.Model", ->
 		expect(otherModel.cid).not.toBeNull()
 		expect(emptyTestModel.cid).not.toEqual(otherModel.cid)
 
-	it "should have an `unset` method returning a Bacon.Property", ->
-		expect(_.isFunction(emptyTestModel.unset)).toBeTruthy()
-		expect(emptyTestModel.unset() instanceof Bacon.Property).toBeTruthy()		
-
-	it "should have an `attributeNames` method returning a Bacon.Property", ->
-		expect(_.isFunction(emptyTestModel.attributeNames)).toBeTruthy()
-		expect(emptyTestModel.attributeNames() instanceof Bacon.Property).toBeTruthy()
-
-	it "should have an `idAttribute` property equal to 'id'", ->
-		expect(emptyTestModel.idAttribute).toEqual('id')
-
-	it "should have an `id` method returning a Bacon.Property", ->
-		expect(_.isFunction(emptyTestModel.id)).toBeTruthy()
-		expect(emptyTestModel.id() instanceof Bacon.Property).toBeTruthy()		
-
-	it "should have an `url` method returning a Bacon.Property", ->
-		expect(_.isFunction(emptyTestModel.url)).toBeTruthy()
-		expect(emptyTestModel.url() instanceof Bacon.Property).toBeTruthy()		
-
 	it "should have a `fetch` method", ->
 		expect(_.isFunction(emptyTestModel.fetch)).toBeTruthy()
 
@@ -64,6 +48,26 @@ describe "Eggs.Model", ->
 
 	it "should have a `destroy` method", ->
 		expect(_.isFunction(emptyTestModel.destroy)).toBeTruthy()
+
+	it "should have an `attributeNames` method returning a Bacon.Property", ->
+		expect(_.isFunction(emptyTestModel.attributeNames)).toBeTruthy()
+		expect(emptyTestModel.attributeNames() instanceof Bacon.Property).toBeTruthy()
+
+	it "should have a `valid` method returning a Bacon.Property", ->
+		expect(_.isFunction(emptyTestModel.valid)).toBeTruthy()
+		expect(emptyTestModel.valid() instanceof Bacon.Property).toBeTruthy()
+
+	it "should have an `unset` method returning a Bacon.Property", ->
+		expect(_.isFunction(emptyTestModel.unset)).toBeTruthy()
+		expect(emptyTestModel.unset() instanceof Bacon.Property).toBeTruthy()		
+
+	it "should have an `id` method returning a Bacon.Property", ->
+		expect(_.isFunction(emptyTestModel.id)).toBeTruthy()
+		expect(emptyTestModel.id() instanceof Bacon.Property).toBeTruthy()		
+
+	it "should have an `url` method returning a Bacon.Property", ->
+		expect(_.isFunction(emptyTestModel.url)).toBeTruthy()
+		expect(emptyTestModel.url() instanceof Bacon.Property).toBeTruthy()		
 
 	describe "without attributes", () ->
 
@@ -235,6 +239,11 @@ describe "Eggs.Model", ->
 		beforeEach ->
 			testModel = new TestModel
 
+		it "should be valid", ->
+			expectPropertyEvents(
+				-> testModel.valid().take(1)
+				[ true ])
+
 		it "should push initial attributes", ->
 			expectPropertyEvents(
 				-> testModel.attributes().take(1),
@@ -295,6 +304,11 @@ describe "Eggs.Model", ->
 					soon -> testModel.attributes({ one: 'valid', two: 2 })
 					p
 				[ ['one', 'two'] ])
+
+		it "should return `false` from `valid` property", ->
+			expectPropertyEvents(
+				-> testModel.valid().take(1)
+				[ false ])
 
 	describe "synching", ->
 
