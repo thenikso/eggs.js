@@ -226,6 +226,28 @@ Eggs.Model = class Model
 		@attributes()
 
 
+# Eggs.Collection
+# ---------------
+
+# An `Eggs.Collection` groups together multiple model instances.
+Eggs.Collection = class Collection
+
+	# The class of model elements contained in this collection. By default this
+	# member is set to `Eggs.Model`.
+	modelClass: Model
+
+	constructor: (models, options = {}) ->
+		@modelClass = options.modelClass if options.modelClass?
+		@compareFunction = options.compareFunction if options.compareFunction?
+
+		@initialize.apply(@, arguments)
+
+	# Called when constructing a new collection. By default this method does 
+	# nothing.
+	initialize: ->
+
+
+
 
 
 
