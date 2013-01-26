@@ -241,7 +241,7 @@ describe "Eggs.Model", ->
 
 		it "should push an error on validation fail", ->
 			testModel.attributes().onError (err) ->
-				expect(err).toEqual({ error: 'invalid', attributes: { one: 1 } })
+				expect(err).toEqual('invalid')
 			testModel.attributes({ one: 1 })
 
 		it "should not validate if `shouldValidate` option is false", ->

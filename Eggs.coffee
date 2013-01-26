@@ -20,6 +20,10 @@ Eggs = @Eggs = {}
 # 	- `shouldValidate` defaults to `true` and indicates if the model isntance should
 # 		be validated.
 #
+# Instance overridable methods:
+# 	- `idAttribute` is the name of the attribute used to compute `id` and 
+# 		`url` properties values.
+#
 # Instance methods:
 # 	- `attributes` is a multi-purpose method that executes various model's
 # 		attributes related operation depending on input parameters:
@@ -35,10 +39,9 @@ Eggs = @Eggs = {}
 # 			`unset` key, in which case attributes with the given names will be
 # 			**removed** from the model.
 # 		Both getter variants (no parameter, single string parameter) Bacon.Property
-# 		will also send validaton errors as an object having:
-# 			* `error`: the error message returned by the `validate` method;
-# 			* `attributes`: the invalid attributes object.
+# 		will also send validaton errors.
 #
+# Instance utility methods (also overridable):
 # 	- `attributeNames` returns a Bacon.Property that pushes an array with all the 
 # 		current valid attribute names in the model instance.
 #
@@ -103,7 +106,7 @@ Eggs.Model = class Model
 			return if _.isEqual(attrObject, attrs)
 			# Validation pass
 			if options.shouldValidate and error = @validate?(attrObject)
-				validAttributesBus.error({ error: error, attributes: attrObject })
+				validAttributesBus.error(error)
 			else
 				attrsInitialValidationError = null
 				attrs = _.clone(attrObject)
@@ -126,6 +129,7 @@ Eggs.Model = class Model
 					return validAttributesProperty[name]	
 				else throw "Invalid attributes accessor: #{name}"
 			else
+				# TODO: object + options case (options: reset, merge, ...)
 				if _.isArray(name)
 					if value['unset']
 						newAttrs = _.omit(attrs, name)
@@ -220,6 +224,8 @@ Eggs.Model = class Model
 	# attributes. By deafult, this function just returns `attributes()`.
 	toJSON: ->
 		@attributes()
+
+
 
 
 
