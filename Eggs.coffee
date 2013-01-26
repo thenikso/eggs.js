@@ -54,7 +54,17 @@ Eggs.Model = class Model
 	# MongoDB and CouchDB users may want to set this to `"_id"`
 	idAttribute: 'id'
 
-	# The model constructor will generate `attributes` and `attributeNames` method.
+	# Initialize could be used by subclasses to add their own model initialization
+	initialize: ->
+
+	# Parse is used to convert a server response into the object to be
+	# set as attributes for the model instance.
+	# It's a plain function returning an object that will be passed to
+	# `attributes` from the default `fetch` implementation.
+	parse: (response) -> 
+		response
+
+	# The model constructor will generate `attributes` method.
 	constructor: (attributes, options) ->
 		options = _.defaults({}, options, {
 			shouldValidate: true
@@ -86,14 +96,6 @@ Eggs.Model = class Model
 		# trigger the validation process.
 		setAttributesBus = new Bacon.Bus
 
-		# The attribute names list bus will receive arrays of strings containing
-		# all the model's attribute names.
-		attributeNamesBus = new Bacon.Bus
-		unless attrsInitialValidationError
-			attributeNamesProperty = attributeNamesBus.toProperty(_.keys(attrs))
-		else
-			attributeNamesProperty = attributeNamesBus.toProperty()
-
 		# The validation process will push values or errors to `validAttributeBus`.
 		setAttributesBus.map((value) -> 
 				_.defaults({}, value, attrs)).onValue (attrObject) =>
@@ -104,9 +106,8 @@ Eggs.Model = class Model
 				validAttributesBus.error({ error: error, attributes: attrObject })
 			else
 				attrsInitialValidationError = null
-				if _.difference(_.keys(attrObject), _.keys(attrs)).length
-					attributeNamesBus.push(_.keys(attrObject))
-				validAttributesBus.push(_.clone(attrs = attrObject))
+				attrs = _.clone(attrObject)
+				validAttributesBus.push(_.clone(attrs))
 
 		# The main accessor to model attributes.
 		@attributes = (name, value) ->
@@ -130,7 +131,6 @@ Eggs.Model = class Model
 						newAttrs = _.omit(attrs, name)
 						if (_.difference(_.keys(attrs), _.keys(newAttrs)))
 							attrs = newAttrs
-							attributeNamesBus.push(_.keys(attrs))
 							validAttributesBus.push(_.clone(attrs))
 						return validAttributesProperty
 				else if _.has(attrs, name)
@@ -140,15 +140,60 @@ Eggs.Model = class Model
 					return validAttributesProperty
 				else throw "Invalid attributes update: #{name}, #{value}"
 
-		# Accessor to property names Bacon.Property
-		@attributeNames = () ->
-			attributeNamesProperty
-
 		# Custom initialization
 		@initialize.apply(@, arguments)
 
-	# Initialize could be used by subclasses to add their own model initialization
-	initialize: ->
+	# Initiates an AJAX request to fetch the model's data form the server.
+	# Returns a Bacon.EventStream that will send the updated attributes once
+	# they have been set to the model.
+	fetch: ->
+		@url()
+		.take(1)
+		.flatMap((url) ->
+			Bacon.fromPromise $.ajax
+				type: 'GET'
+				dataType: 'json'
+				url: url)
+		.flatMap((result) =>
+			@attributes @parse(result))
+
+	# Initiates an AJAX request that sends the model's attributes to the server.
+	# Returns a Bacon.EventStream derived from the AJAX request promise.
+	# TODO options (updateModel, ...)
+	save: ->
+		Bacon.combineAsArray(@url(), @toJSON())
+		.take(1)
+		.flatMap((info) =>
+			[url, attributes] = info
+			Bacon.fromPromise $.ajax
+				type: if attributes[@idAttribute] then 'PUT' else 'POST'
+				dataType: 'json'
+				processData: false
+				url: url
+				data: attributes)
+		.flatMap((result) =>
+			@attributes @parse(result))
+
+	# Destroy the model instance on the server if it was present.
+	# Returns a Bacon.EvnetStream that will push a single value returned from
+	# the server or `null` if no server activity was initiated.
+	# TODO remove from collection
+	destroy: ->
+		Bacon.combineAsArray(@url(), @id())
+		.take(1)
+		.flatMap((info) ->
+			[url, id] = info
+			if id?
+				Bacon.fromPromise $.ajax
+					type: 'DELETE'
+					dataType: 'json'
+					processData: false
+					url: url
+			else
+				Bacon.once(null))
+
+	attributeNames: ->
+		@attributes().map _.keys
 
 	# Unset the given attributes in the model. The parameter can either be a string
 	# with the name of the attribute to unset, or an array of names.
@@ -171,36 +216,10 @@ Eggs.Model = class Model
 			return "#{base}/#{encodeURIComponent(id)}" if id
 			base
 
-	# Initiates an AJAX request to fetch the model's data form the server.
-	# Returns a Bacon.EventStream that will send the updated attributes once
-	# they have been set to the model.
-	fetch: ->
-		@url()
-		.take(1)
-		.flatMap((url) ->
-			Bacon.fromPromise $.ajax
-				type: 'GET'
-				dataType: 'json'
-				url: url)
-		.flatMap((result) =>
-			@attributes(result))
-
-	# Initiates an AJAX request that sends the model's attributes to the server.
-	# Returns a Bacon.EventStream derived from the AJAX request promise.
-	# TODO options (updateModel, ...)
-	save: ->
-		Bacon.combineAsArray(@url(), @attributes())
-		.take(1)
-		.flatMap((info) =>
-			[url, attributes] = info
-			Bacon.fromPromise $.ajax
-				type: if attributes[@idAttribute] then 'PUT' else 'POST'
-				dataType: 'json'
-				processData: false
-				url: url
-				data: attributes)
-		.flatMap((result) =>
-			@attributes(result))
+	# Returns a Bacon.Property with the JSON reppresentation of the model's 
+	# attributes. By deafult, this function just returns `attributes()`.
+	toJSON: ->
+		@attributes()
 
 
 
@@ -220,48 +239,6 @@ Eggs.model = (extension) ->
 
 	child.__super__ = parent.prototype
 	child
-
-
-
-Eggs.ReplayBus = class ReplayBus extends Bacon.EventStream
-	constructor: (@replayCount) ->
-		sink = undefined
-		unsubFuncs = []
-		inputs = []
-		ended = false
-		guardedSink = (input) => (event) =>
-			if (event.isEnd())
-				remove(input, inputs)
-				Bacon.noMore
-			else
-				sink event
-		unsubAll = => 
-			f() for f in unsubFuncs
-			unsubFuncs = []
-		subscribeAll = (newSink) =>
-			sink = newSink
-			unsubFuncs = []
-			for input in cloneArray(inputs)
-				unsubFuncs.push(input.subscribe(guardedSink(input)))
-			unsubAll
-		dispatcher = new Dispatcher(subscribeAll)
-		subscribeThis = (sink) =>
-			console.log "will subscribe #{sink}"
-			dispatcher.subscribe(sink)
-		super(subscribeThis)
-		@plug = (inputStream) =>
-			return if ended
-			inputs.push(inputStream)
-			if (sink?)
-				unsubFuncs.push(inputStream.subscribe(guardedSink(inputStream)))
-		@push = (value) =>
-			sink next(value) if sink?
-		@error = (error) =>
-			sink new Error(error) if sink?
-		@end = =>
-			ended = true
-			unsubAll()
-			sink end() if sink?
 
 
 routeStripper = /^[#\/]|\s+$/g

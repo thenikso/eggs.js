@@ -56,6 +56,9 @@ describe "Eggs.Model", ->
 	it "should have a `save` method", ->
 		expect(_.isFunction(emptyTestModel.save)).toBeTruthy()
 
+	it "should have a `destroy` method", ->
+		expect(_.isFunction(emptyTestModel.destroy)).toBeTruthy()
+
 	describe "without attributes", () ->
 
 		class TestModel extends Eggs.Model
@@ -310,9 +313,14 @@ describe "Eggs.Model", ->
 								d.resolve { id: 2, one: 'one', two: 'two' }
 							else
 								d.reject "ajax create error"
+						when 'DELETE'
+							if options.url.indexOf('testurl/1') >= 0
+								d.resolve { status: 'ok' }
+							else
+								d.reject "ajax delete error"
 						else 
 							d.reject "ajax invalid request"
-				200)
+				100)
 			d.promise()
 
 		class TestModel extends Eggs.Model
@@ -365,6 +373,15 @@ describe "Eggs.Model", ->
 				-> testModel.attributes('id', 2).take(1).flatMap -> testModel.fetch().take(1)
 				[ error() ])
 
+		it "should delete a model from the server if it exist", ->
+			expectStreamEvents(
+				-> testModel.destroy()
+				[ { status: 'ok' } ])
+
+		it "should push for delete even if the model is new", ->
+			expectStreamEvents(
+				-> testModel.unset('id').take(1).flatMap -> testModel.destroy()
+				[ null ])
 
 
 

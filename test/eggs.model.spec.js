@@ -99,6 +99,9 @@
     it("should have a `save` method", function() {
       return expect(_.isFunction(emptyTestModel.save)).toBeTruthy();
     });
+    it("should have a `destroy` method", function() {
+      return expect(_.isFunction(emptyTestModel.destroy)).toBeTruthy();
+    });
     describe("without attributes", function() {
       var TestModel, testModel;
       TestModel = (function(_super) {
@@ -565,10 +568,19 @@
                 return d.reject("ajax create error");
               }
               break;
+            case 'DELETE':
+              if (options.url.indexOf('testurl/1') >= 0) {
+                return d.resolve({
+                  status: 'ok'
+                });
+              } else {
+                return d.reject("ajax delete error");
+              }
+              break;
             default:
               return d.reject("ajax invalid request");
           }
-        }, 200);
+        }, 100);
         return d.promise();
       };
       TestModel = (function(_super) {
@@ -651,12 +663,28 @@
           }
         ]);
       });
-      return it("should forward ajax error on fetch", function() {
+      it("should forward ajax error on fetch", function() {
         return expectStreamEvents(function() {
           return testModel.attributes('id', 2).take(1).flatMap(function() {
             return testModel.fetch().take(1);
           });
         }, [error()]);
+      });
+      it("should delete a model from the server if it exist", function() {
+        return expectStreamEvents(function() {
+          return testModel.destroy();
+        }, [
+          {
+            status: 'ok'
+          }
+        ]);
+      });
+      return it("should push for delete even if the model is new", function() {
+        return expectStreamEvents(function() {
+          return testModel.unset('id').take(1).flatMap(function() {
+            return testModel.destroy();
+          });
+        }, [null]);
       });
     });
   });
