@@ -67,7 +67,15 @@ Eggs.Model = class Model
 	parse: (response) -> 
 		response
 
-	# The model constructor will generate `attributes` method.
+	# `defaults` can be defined as an object that contains default attributes
+	# that will be used when creating a new model.
+
+	# `validate` can be defined to be a function receiving attributes and 
+	# returning a falsy value if the attributes are valid. If the function
+	# returns something it will be treated as a validation error value.
+
+	# The model constructor will generate `attributes` method. It will also assing
+	# a client id `cid` to the model.
 	constructor: (attributes, options) ->
 		options = _.defaults({}, options, {
 			shouldValidate: true
@@ -77,6 +85,10 @@ Eggs.Model = class Model
 		# object within this method.
 		attrs = attributes or {}
 		attrs = _.defaults({}, attrs, defaults) if defaults = _.result(@, 'defaults')
+
+		# Generate a unique client id that wil be used by collections for 
+		# unsaved models
+		@cid = _.uniqueId('c')
 
 		# Initial validation. Attributes will not have an initial value
 		# if `attrs` are invalid.
@@ -163,7 +175,7 @@ Eggs.Model = class Model
 
 	# Initiates an AJAX request that sends the model's attributes to the server.
 	# Returns a Bacon.EventStream derived from the AJAX request promise.
-	# TODO options (updateModel, ...)
+	# TODO options (updateModel, wait, ...)
 	save: ->
 		Bacon.combineAsArray(@url(), @toJSON())
 		.take(1)
@@ -196,8 +208,10 @@ Eggs.Model = class Model
 			else
 				Bacon.once(null))
 
+	# A Bacon.Property sending array of strings with the names of current valid 
+	# model attributes.
 	attributeNames: ->
-		@attributes().map _.keys
+		@_attributeNames or= @attributes().map(_.keys)
 
 	# Unset the given attributes in the model. The parameter can either be a string
 	# with the name of the attribute to unset, or an array of names.
@@ -229,22 +243,41 @@ Eggs.Model = class Model
 # Eggs.Collection
 # ---------------
 
-# An `Eggs.Collection` groups together multiple model instances.
+# An `Eggs.Collection` groups together multiple model instances. 
+#
+# 	- `models` is the single most important method of the class. It allows to
+# 		access and modify the collection's content. Input parameters can be:
+# 		- *no parameters*: **gets** a Bacon.Property of valid collection models;
+# 		- *models, options*: **adds** or **remove** models depending on options.
+# 			*models* can be a signle Model or attributes object or an array of 
+# 			either. Options are:
+# 			- `reset`: deafult to **false**, indicates if the model should be 
+# 				emptied before adding the new content;
+# 			- 
 Eggs.Collection = class Collection
 
 	# The class of model elements contained in this collection. By default this
 	# member is set to `Eggs.Model`.
 	modelClass: Model
 
-	constructor: (models, options = {}) ->
-		@modelClass = options.modelClass if options.modelClass?
-		@compareFunction = options.compareFunction if options.compareFunction?
-
-		@initialize.apply(@, arguments)
+	# `modelIdAttribute` can be defined to use a specified model attribute as
+	# id. By default the model's `idAttribute` will be used.
 
 	# Called when constructing a new collection. By default this method does 
 	# nothing.
 	initialize: ->
+
+	# The constructor will generate the `models` method to access and modify
+	# the Collection's elements.
+	constructor: (cModels, cOptions = {}) ->
+		@modelClass = cOptions.modelClass if cOptions.modelClass?
+		@compareFunction = cOptions.compareFunction if cOptions.compareFunction?
+
+		# The main accessor to collection's models
+		@models = (models, options) ->
+
+
+		@initialize.apply(@, arguments)
 
 
 

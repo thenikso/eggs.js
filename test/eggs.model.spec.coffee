@@ -31,6 +31,12 @@ describe "Eggs.Model", ->
 		expect(_.isFunction(emptyTestModel.attributes)).toBeTruthy()
 		expect(emptyTestModel.attributes() instanceof Bacon.Property).toBeTruthy()
 
+	it "should have an unique `cid` for client id", ->
+		otherModel = new Eggs.Model
+		expect(emptyTestModel.cid).not.toBeNull()
+		expect(otherModel.cid).not.toBeNull()
+		expect(emptyTestModel.cid).not.toEqual(otherModel.cid)
+
 	it "should have an `unset` method returning a Bacon.Property", ->
 		expect(_.isFunction(emptyTestModel.unset)).toBeTruthy()
 		expect(emptyTestModel.unset() instanceof Bacon.Property).toBeTruthy()		
