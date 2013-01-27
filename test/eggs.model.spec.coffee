@@ -40,6 +40,9 @@ describe "Eggs.Model", ->
 		expect(otherModel.cid).not.toBeNull()
 		expect(emptyTestModel.cid).not.toEqual(otherModel.cid)
 
+	it "should have a `collection` member", ->
+		expect(emptyTestModel.collection).toBeDefined()
+
 	it "should have a `fetch` method", ->
 		expect(_.isFunction(emptyTestModel.fetch)).toBeTruthy()
 
@@ -102,6 +105,11 @@ describe "Eggs.Model", ->
 		it "should push `undefined` for `id()`", ->
 			expectPropertyEvents(
 				-> testModel.id().take(1)
+				[ undefined ])
+
+		it "should push `undefined` for unexisting attribute", ->
+			expectPropertyEvents(
+				-> testModel.attributes('unexising').take(1)
 				[ undefined ])
 
 	describe "with default attributes", ->
