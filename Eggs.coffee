@@ -312,43 +312,30 @@ Eggs.Collection = class Collection
 			return modelsProperty if arguments.length == 0
 			models = if _.isArray(models) then models.slice() else [models]
 			options or= {}
-			at = options.at or modelsArray.length - 1
-
+			at = options.at or modelsArray.length
 			add = []
 			for model in models
 				model = prepareModel(model, options)
-				# model.attributes().onValue (a) -> console.log a
 				add.push(model)
-
 			modelsArray[at..at-1] = add
 			modelsBus.push(modelsArray)
-
-			# Bacon
-			# 	.fromArray(models)
-			# 	.map((m) -> prepareModel(m, options))
-			# 	.flatMap((m) -> m.valid().take(1).map((v) -> if v then m else null))
-			# 	.filter((m) -> m?)
-			# 	.scan(modelsArray[0..at], (arr, m) ->
-			# 		arr.push(m)
-			# 		arr)
-			# 	.onValue((newHead) ->
-			# 		modelsArray = newHead.concat modelsArray[at+1..]
-			# 		modelsBus.push modelsArray)
 			modelsProperty
 
-		# TODO valid models should send array of valid models 
+		# Sends a model array only containing valid models
 		@validModels = ->
 			@models().flatMapLatest((ms) ->
 				Bacon.combineAsArray(m.valid() for m in ms).map((validArray) ->
 					result = []
 					for v, i in validArray
-						result.push(ms[i]) if v 
-					result)).toProperty()
+						result.push(ms[i]) if v
+					result))
+			.toProperty()
 
 		# TODO: sortedModels will be a separate method
 		#sort = @comparator and at? and options.sort !== false
 		#for model, index in models
 
+		# Initialize models with constructor options
 		@models(cModels, cOptions)
 
 		@initialize.apply(@, arguments)

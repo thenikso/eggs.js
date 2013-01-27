@@ -21,9 +21,8 @@ describe "Eggs.Collection", ->
 	it "should have a `validModels` method", ->
 		expect(emptyCollection.validModels).toBeDefined()
 
-	it "should have a `pluck` method returning a Bacon.Property", ->
+	it "should have a `pluck` method", ->
 		expect(emptyCollection.pluck).toBeDefined()
-		expect(emptyCollection.pluck('a') instanceof Bacon.Property).toBeTruthy()
 
 	describe "with models", ->
 
@@ -48,15 +47,41 @@ describe "Eggs.Collection", ->
 		it "should send initial models", ->
 			expectPropertyEvents(
 				-> testCollection.models().take(1)
-				[ [ testModel1, testModel2, testModel3 ] ])
+				[ [testModel1, testModel2, testModel3] ])
 
 		it "should send valid models", ->
 			expectPropertyEvents(
 				-> testCollection.validModels().take(1)
-				[ [ testModel1, testModel2 ] ])
+				[ [testModel1, testModel2] ])
+
+		it "should update valid models when a model becomes valid", ->
+			expectPropertyEvents(
+				->
+					p = testCollection.validModels().take(2)
+					soon ->
+						testModel3.attributes('number', 5)
+					p
+				[ [testModel1, testModel2], [testModel1, testModel2, testModel3] ])
+
+		it "should add a model to the collection", ->
+			testModel4 = new TestModel
+			expectPropertyEvents(
+				-> testCollection.models(testModel4).take(1)
+				[ [testModel1, testModel2, testModel3, testModel4] ])
 
 		it "should pluck values", ->
 			expectPropertyEvents(
 				-> testCollection.pluck('one').take(1)
 				[ ['one', 1] ])
+
+		it "should add a model to the collection from attributes", ->
+			expectPropertyEvents(
+				-> 
+					p = testCollection.pluck('one').take(2)
+					soon ->
+						testCollection.models({ one: 'ONE' })
+					p
+				[ ['one', 1], ['one', 1, 'ONE'] ])
+
+
 
