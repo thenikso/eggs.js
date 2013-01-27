@@ -41,7 +41,7 @@ describe "Eggs.Collection", ->
 		beforeEach ->
 			testModel1 = new TestModel { one: 'one' }
 			testModel2 = new TestModel { id: 2, one: 1, number: 2 }
-			testModel3 = new TestModel { id: 2, number: 'nan' }
+			testModel3 = new TestModel { id: 3, number: 'nan' }
 			testCollection = new TestCollection [ testModel1, testModel2, testModel3 ]
 
 		it "should send initial models", ->
@@ -83,10 +83,21 @@ describe "Eggs.Collection", ->
 					p
 				[ ['one', 1], ['one', 1, 'ONE'] ])
 
-		it "should NOT a model if already in the collection", ->
+		it "should NOT add a model if already in the collection", ->
 			expectPropertyEvents(
 				-> testCollection.models(testModel1).take(1)
 				[ [testModel1, testModel2, testModel3] ])
 
+		it "should insert a model at a specified location", ->
+			testModel4 = new TestModel
+			expectPropertyEvents(
+				-> testCollection.models(testModel4, { at: 0 }).take(1)
+				[ [testModel4, testModel1, testModel2, testModel3] ])
+
+		it "`validModels` should be usable like `models`", ->
+			testModel4 = new TestModel
+			expectPropertyEvents(
+				-> testCollection.validModels(testModel4, { at: 1 }).take(1)
+				[ [testModel1, testModel4, testModel2] ])
 
 

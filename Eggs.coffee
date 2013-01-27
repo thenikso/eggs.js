@@ -313,7 +313,7 @@ Eggs.Collection = class Collection
 			return modelsProperty if arguments.length == 0
 			models = if _.isArray(models) then models.slice() else [models]
 			options or= {}
-			at = options.at or modelsArray.length
+			at = options.at ? modelsArray.length
 			add = []
 			for model in models
 				model = prepareModel(model, options)
@@ -326,8 +326,9 @@ Eggs.Collection = class Collection
 			modelsProperty
 
 		# Sends a model array only containing valid models
-		@validModels = ->
-			@models().flatMapLatest((ms) ->
+		@validModels = (args...) ->
+			@models(args...) if args.length
+			@_validModels or= @models().flatMapLatest((ms) ->
 				Bacon.combineAsArray(m.valid() for m in ms).map((validArray) ->
 					result = []
 					for v, i in validArray
