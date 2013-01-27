@@ -83,5 +83,10 @@ describe "Eggs.Collection", ->
 					p
 				[ ['one', 1], ['one', 1, 'ONE'] ])
 
+		it "should NOT a model if already in the collection", ->
+			expectPropertyEvents(
+				-> testCollection.models(testModel1).take(1)
+				[ [testModel1, testModel2, testModel3] ])
+
 
 

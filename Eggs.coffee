@@ -289,6 +289,7 @@ Eggs.Collection = class Collection
 		modelsBus = new Bacon.Bus
 		modelsProperty = modelsBus.toProperty()
 		modelsArray = []
+		modelsById = {}
 
 		# Activate modelsProperty
 		modelsProperty.onValue ->
@@ -316,9 +317,12 @@ Eggs.Collection = class Collection
 			add = []
 			for model in models
 				model = prepareModel(model, options)
-				add.push(model)
-			modelsArray[at..at-1] = add
-			modelsBus.push(modelsArray)
+				unless modelsById[model.cid]?
+					add.push(model)
+					modelsById[model.cid] = model
+			if add.length
+				modelsArray[at..at-1] = add
+				modelsBus.push(modelsArray)
 			modelsProperty
 
 		# Sends a model array only containing valid models
@@ -349,8 +353,8 @@ Eggs.Collection = class Collection
 		.toProperty()
 
 
-# WORK IN PROGRESS FROM THIS POINT
-# --------------------------------
+# UNTESTED WORK FROM THIS POINT
+# -----------------------------
 
 Eggs.model = (extension) -> 
 	parent = Model
