@@ -338,7 +338,12 @@ Eggs.Collection = class Collection
 
 		# TODO valid models should send array of valid models 
 		@validModels = ->
-			@models()
+			@models().flatMapLatest((ms) ->
+				Bacon.combineAsArray(m.valid() for m in ms).map((validArray) ->
+					result = []
+					for v, i in validArray
+						result.push(ms[i]) if v 
+					result)).toProperty()
 
 		# TODO: sortedModels will be a separate method
 		#sort = @comparator and at? and options.sort !== false
