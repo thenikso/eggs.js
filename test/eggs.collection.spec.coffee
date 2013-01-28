@@ -107,6 +107,16 @@ describe "Eggs.Collection", ->
 				-> testCollection.validModels(testModel4, { at: 1 }).take(1)
 				[ [testModel1, testModel4, testModel2] ])
 
+		it "should reset the collection and add new models", ->
+			testModel4 = new TestModel
+			expectPropertyEvents(
+				-> 
+					p = testCollection.models([testModel1, testModel4], { reset: true }).take(2)
+					soon ->
+						testCollection.models([], { reset: true })
+					p
+				[ [testModel1, testModel4], [] ])
+
 	describe "with sorting", ->
 
 		class TestModel extends Eggs.Model

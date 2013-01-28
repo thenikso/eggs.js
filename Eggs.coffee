@@ -315,6 +315,9 @@ Eggs.Collection = class Collection
 			options or= {}
 			at = options.at ? modelsArray.length
 			add = []
+			if options.reset
+				modelsArray = []
+				modelsById = {}
 			for model in models
 				model = prepareModel(model, options)
 				unless modelsById[model.cid]?
@@ -322,6 +325,7 @@ Eggs.Collection = class Collection
 					modelsById[model.cid] = model
 			if add.length
 				modelsArray[at..at-1] = add
+			if add.length or options.reset
 				modelsBus.push(modelsArray)
 			modelsProperty
 
@@ -357,9 +361,6 @@ Eggs.Collection = class Collection
 					.sort(comparator)
 					.map((am) -> am[1])))
 			.toProperty()
-
-		#sort = @comparator and at? and options.sort !== false
-		#for model, index in models
 
 		# Initialize models with constructor options
 		@models(cModels, cOptions)
