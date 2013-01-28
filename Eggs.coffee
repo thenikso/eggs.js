@@ -336,7 +336,28 @@ Eggs.Collection = class Collection
 					result))
 			.toProperty()
 
-		# TODO: sortedModels will be a separate method
+		# Sends an ordered models array if `comparator` is specified.
+		@sortedModels = (args...) ->
+			customComparator = @comparator
+			if args.length is 1 and (_.isFunction(args[0]) or _.isString(args[0]))
+				customComparator = args[0]
+			else
+				@models(args...) if args.length
+			return @validModels() unless customComparator
+			if _.isString(customComparator)
+				comparator = (a, b) =>
+					if a[0][customComparator] < b[0][customComparator] then -1
+					else if a[0][customComparator] > b[0][customComparator] then 1
+					else 0
+			else
+				comparator = (a, b) => customComparator(a[0], b[0])
+			@validModels().flatMapLatest((ms) ->
+				Bacon.combineAsArray(m.attributes() for m in ms).map((mattrs) ->
+					([attrs, ms[i]] for attrs, i in mattrs)
+					.sort(comparator)
+					.map((am) -> am[1])))
+			.toProperty()
+
 		#sort = @comparator and at? and options.sort !== false
 		#for model, index in models
 
