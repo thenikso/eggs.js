@@ -1,5 +1,8 @@
 # Eggs 0.0.1
 
+isHash = (obj) -> 
+	(obj instanceof Object) and not (obj instanceof Array) and (typeof obj isnt 'array')
+
 Eggs = @Eggs = {}
 
 # Eggs.Model
@@ -25,21 +28,28 @@ Eggs = @Eggs = {}
 # 		`url` properties values.
 #
 # Instance methods:
-# 	- `attributes` is a multi-purpose method that executes various model's
-# 		attributes related operation depending on input parameters:
-# 		- *no parameters*: **gets** a Bacon.Property with model's attributes object;
-# 		- *name*: **gets**, if possible, a Bacon.Property for the single
-# 			attribute with the given name;
-# 		- *object*: **set** attributes by **add**ing or modifying the current ones;
-# 			if an attribute present in the model is not specified by the given object,
-# 			it will maintain it's current value. This will trigger the validation;
-# 		- *name string, value*: will **set** the single attribute with the given 
-# 			value if possible; this will trigger the validation process;
-# 		- *names array, options*: the options object can contain a boolean 
-# 			`unset` key, in which case attributes with the given names will be
-# 			**removed** from the model.
-# 		Both getter variants (no parameter, single string parameter) Bacon.Property
-# 		will also send validaton errors.
+# 	- `attributes` returns a Bacon.Property of valid attributes in the model.
+# 		Validation errors are sent through. It accepts parameters to get specific
+# 		attributes:
+# 		- *string*: returns a Bacon.Property sending values for the attribute with
+# 			the specified name;
+# 		- *array of strings*: returns a Bacon.Property sending collected values
+# 			of all attributes specified every time one of those attribute changes.
+# 	- `set` modify attributes. Attributes will be validated if needed and the
+# 		actual change will happen only if the set attribute is valid. `set` accepts
+# 		different inputs:
+# 		- *object, options*: set attributes by adding or modifying the current ones;
+# 		- *name string, value*: will set or add the single attribute with the given 
+# 			value if possible;
+# 		- *names array, options*: apply options derived actions to attributes in the
+# 			array.
+# 		Options are:
+# 		- `reset`: defualt to false, if true will remove all attributes before 
+# 			setting the new ones. If false, setted attributes will be merged with 
+# 			existing ones;
+# 		- `unset`: default to false, if true will remove the specified attributes
+# 			instead of setting them.
+# 		Returns `attributes`.
 #
 # Instance utility methods (also overridable):
 # 	- `attributeNames` returns a Bacon.Property that pushes an array with all the 
@@ -76,15 +86,11 @@ Eggs.Model = class Model
 
 	# The model constructor will generate `attributes` method. It will also assing
 	# a client id `cid` to the model.
-	constructor: (attributes, options) ->
+	constructor: (attrs, options) ->
 		options = _.defaults {}, options, 
-			shouldValidate: true
+			shouldValidate: yes
 			collection: null
-
-		# Get model instance attributes. `attrs` will keep the current attributes
-		# object within this method.
-		attrs = attributes or {}
-		attrs = _.defaults({}, attrs, defaults) if defaults = _.result(@, 'defaults')
+		attributesAreValid = not options.shouldValidate
 
 		# Generate a unique client id that wil be used by collections for 
 		# unsaved models
@@ -93,74 +99,62 @@ Eggs.Model = class Model
 		# The collection that this model is in.
 		@collection = options.collection
 
-		# Initial validation. Attributes will not have an initial value
-		# if `attrs` are invalid.
-		attrsInitialValidationError = options.shouldValidate and @validate?(_.clone(attrs))
-
 		# The bus and relative Property that will send validated attributes
 		# and validation errors.
-		validAttributesBus = new Bacon.Bus
-		unless attrsInitialValidationError
-			validAttributesProperty = validAttributesBus.toProperty(_.clone(attrs))
-		else
-			validAttributesProperty = validAttributesBus.toProperty()
-		validSingleAttributes = {}
+		attributes = null
+		attributesBus = new Bacon.Bus
+		attributesProperty = attributesBus.toProperty()
 
 		# Subscribe on an empty function to activate the property so that it will
 		# always be current.
-		validAttributesProperty.onValue ->
-
-		# The bus used to push un-validated attributes. This bus will be used to
-		# trigger the validation process.
-		setAttributesBus = new Bacon.Bus
-
-		# The validation process will push values or errors to `validAttributeBus`.
-		setAttributesBus
-		.map((value) -> _.defaults({}, value, attrs))
-		.onValue (attrObject) =>
-			# Ignore update if equal to current state
-			return if _.isEqual(attrObject, attrs)
-			# Validation pass
-			if options.shouldValidate and error = @validate?(attrObject)
-				validAttributesBus.error(error)
-			else
-				attrsInitialValidationError = null
-				attrs = _.clone(attrObject)
-				validAttributesBus.push(_.clone(attrs))
+		attributesProperty.onValue ->
 
 		# The main accessor to model attributes.
-		@attributes = (name, value) ->
-			return validAttributesProperty if arguments.length == 0
-			if arguments.length == 1
-				if _.isObject(name)
-					setAttributesBus.push(name)
-					return validAttributesProperty
-				# TODO array case to merge attributes changes
-				unless validAttributesProperty[name]
-					unless attrsInitialValidationError
-						validAttributesProperty[name] or= validAttributesBus.map(".#{name}").toProperty(attrs[name])
-					else
-						validAttributesProperty[name] or= validAttributesBus.map(".#{name}").toProperty()
-				return validAttributesProperty[name]	
-			else
-				# TODO: object + options case (options: reset, merge, ...)
-				if _.isArray(name)
-					if value['unset']
-						newAttrs = _.omit(attrs, name)
-						if (_.difference(_.keys(attrs), _.keys(newAttrs)))
-							attrs = newAttrs
-							validAttributesBus.push(_.clone(attrs))
-						return validAttributesProperty
-				else if _.has(attrs, name)
-					setObject = {}
-					setObject[name] = value
-					setAttributesBus.push(setObject)
-					return validAttributesProperty
-				else throw "Invalid attributes update: #{name}, #{value}"
+		@attributes = (names) ->
+			return attributesProperty if arguments.length == 0
+			return attributesProperty.map(".#{names}") if _.isString(names)
+			if _.isArray(names)
+				return attributesProperty.map (attributes) ->
+					(attributes[n] for n in names)
+			throw new Error("Invalid parameter for `set` method: #{names}")
+
+		# Setting model's attributes
+		@set = (obj, opts) ->
+			unless arguments.length > 1 or isHash(obj)
+				throw new Error("Invalid parameter for `set` method: #{obj}")
+			opts ?= {}
+			if opts.unset
+				if _.isString(obj) then obj = [obj]
+				else if isHash(obj) then obj = _.keys(obj)
+				newAttributes = _.omit(attributes, obj)
+				if _.difference(_.keys(attributes), _.keys(newAttributes))
+					attributes = newAttributes
+					attributesBus.push(_.clone(attributes))
+				return attributesProperty
+			if _.isString(obj)
+				o = {}
+				o[obj] = opts
+				obj = o
+				opts = {}
+			unless opts.reset
+				obj = _.defaults({}, obj, attributes)
+			# Validation
+			unless _.isEqual(obj, attributes)
+				if options.shouldValidate and error = @validate?(obj)
+					attributesBus.error(error)
+				else
+					attributesAreValid = yes
+					attributes = _.clone(obj)
+					attributesBus.push(_.clone(attributes))
+			attributesProperty
 
 		# Will indicate if the current set of attributes is valid.
 		@valid = ->
-			@_valid or= validAttributesBus.map(true).toProperty(not attrsInitialValidationError?).skipDuplicates()
+			@_valid or= attributesBus.map(yes).toProperty(attributesAreValid).skipDuplicates()
+
+		# Initialize the model attributes
+		attrs = _.defaults({}, attrs, defaults) if defaults = _.result(@, 'defaults')
+		@set(attrs or {})
 
 		# Custom initialization
 		@initialize.apply(@, arguments)
@@ -177,7 +171,7 @@ Eggs.Model = class Model
 				dataType: 'json'
 				url: url)
 		.flatMap((result) =>
-			@attributes @parse(result))
+			@set @parse(result))
 
 	# Initiates an AJAX request that sends the model's attributes to the server.
 	# Returns a Bacon.EventStream derived from the AJAX request promise.
@@ -194,7 +188,7 @@ Eggs.Model = class Model
 				url: url
 				data: attributes)
 		.flatMap((result) =>
-			@attributes @parse(result))
+			@set @parse(result))
 
 	# Destroy the model instance on the server if it was present.
 	# Returns a Bacon.EvnetStream that will push a single value returned from
@@ -222,8 +216,7 @@ Eggs.Model = class Model
 	# Unset the given attributes in the model. The parameter can either be a string
 	# with the name of the attribute to unset, or an array of names.
 	unset: (attrNames) ->
-		attrNames = [attrNames] unless _.isArray(attrNames)
-		@attributes(attrNames, { unset: true })
+		@set(attrNames, { unset: true })
 
 	# Returns a Bacon.Property pushing the id of the model or null if the model 
 	# is new. This method uses `idAttribute` to determine which attribute is the id.
@@ -329,43 +322,47 @@ Eggs.Collection = class Collection
 				modelsBus.push(modelsArray)
 			modelsProperty
 
-		# Sends a model array only containing valid models
-		@validModels = (args...) ->
-			@models(args...) if args.length
-			@_validModels or= @models().flatMapLatest((ms) ->
-				Bacon.combineAsArray(m.valid() for m in ms).map((validArray) ->
-					result = []
-					for v, i in validArray
-						result.push(ms[i]) if v
-					result))
-			.toProperty()
+		@get = (ids) ->
+			ids = [ids] unless _.isArray(ids)
 
-		# Sends an ordered models array if `comparator` is specified.
-		@sortedModels = (args...) ->
-			customComparator = @comparator
-			if args.length is 1 and (_.isFunction(args[0]) or _.isString(args[0]))
-				customComparator = args[0]
-			else
-				@models(args...) if args.length
-			return @validModels() unless customComparator
-			if _.isString(customComparator)
-				comparator = (a, b) =>
-					if a[0][customComparator] < b[0][customComparator] then -1
-					else if a[0][customComparator] > b[0][customComparator] then 1
-					else 0
-			else
-				comparator = (a, b) => customComparator(a[0], b[0])
-			@validModels().flatMapLatest((ms) ->
-				Bacon.combineAsArray(m.attributes() for m in ms).map((mattrs) ->
-					([attrs, ms[i]] for attrs, i in mattrs)
-					.sort(comparator)
-					.map((am) -> am[1])))
-			.toProperty()
 
 		# Initialize models with constructor options
 		@models(cModels, cOptions)
 
 		@initialize.apply(@, arguments)
+
+	# Sends a model array only containing valid models
+	validModels: (args...) ->
+		@models(args...) if args.length
+		@_validModels or= @models().flatMapLatest((ms) ->
+			Bacon.combineAsArray(m.valid() for m in ms).map((validArray) ->
+				result = []
+				for v, i in validArray
+					result.push(ms[i]) if v
+				result))
+		.toProperty()
+
+	# Sends an ordered models array if `comparator` is specified.
+	sortedModels: (args...) ->
+		customComparator = @comparator
+		if args.length is 1 and (_.isFunction(args[0]) or _.isString(args[0]))
+			customComparator = args[0]
+		else
+			@models(args...) if args.length
+		return @validModels() unless customComparator
+		if _.isString(customComparator)
+			comparator = (a, b) =>
+				if a[0][customComparator] < b[0][customComparator] then -1
+				else if a[0][customComparator] > b[0][customComparator] then 1
+				else 0
+		else
+			comparator = (a, b) => customComparator(a[0], b[0])
+		@validModels().flatMapLatest((ms) ->
+			Bacon.combineAsArray(m.attributes() for m in ms).map((mattrs) ->
+				([attrs, ms[i]] for attrs, i in mattrs)
+				.sort(comparator)
+				.map((am) -> am[1])))
+		.toProperty()
 
 	# Returns a Bacon.Property that collects the specified attribute from each 
 	# valid model and sends arrays of those attributes.

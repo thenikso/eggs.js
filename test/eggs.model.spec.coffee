@@ -34,6 +34,10 @@ describe "Eggs.Model", ->
 		expect(_.isFunction(emptyTestModel.attributes)).toBeTruthy()
 		expect(emptyTestModel.attributes() instanceof Bacon.Property).toBeTruthy()
 
+	it "should have a `set` method returning a Bacon.Property", ->
+		expect(_.isFunction(emptyTestModel.set)).toBeTruthy()
+		expect(emptyTestModel.set({}) instanceof Bacon.Property).toBeTruthy()
+
 	it "should have an unique `cid` for client id", ->
 		otherModel = new Eggs.Model
 		expect(emptyTestModel.cid).not.toBeNull()
@@ -70,7 +74,7 @@ describe "Eggs.Model", ->
 
 	it "should have an `url` method returning a Bacon.Property", ->
 		expect(_.isFunction(emptyTestModel.url)).toBeTruthy()
-		expect(emptyTestModel.url() instanceof Bacon.Property).toBeTruthy()		
+		expect(emptyTestModel.url() instanceof Bacon.Property).toBeTruthy()
 
 	describe "without attributes", () ->
 
@@ -86,19 +90,19 @@ describe "Eggs.Model", ->
 				-> testModel.attributes().take(1)
 				[ {} ])
 
-		it "should add new attributes when setting `attributes()`", ->
+		it "should add new attributes", ->
 			expectPropertyEvents(
 				->
 					p = testModel.attributes().take(2)
-					soon -> testModel.attributes({ one: 1 })
+					soon -> testModel.set({ one: 1 })
 					p
 				[ {}, { one: 1 }])
 
-		it "should add a new property to `attributeNames` when setting `attributes()`", ->
+		it "should add a new property to `attributeNames`", ->
 			expectPropertyEvents(
 				->
 					p = testModel.attributeNames().take(2)
-					soon -> testModel.attributes({ one: 1 })
+					soon -> testModel.set({ one: 1 })
 					p
 				[ [], ['one'] ])
 
@@ -145,7 +149,7 @@ describe "Eggs.Model", ->
 			expectPropertyEvents(
 				->
 					p = testModel.attributes().take(2)
-					soon -> testModel.attributes({ one: 1 })
+					soon -> testModel.set({ one: 1 })
 					p
 				[ { one: 'one', two: 2 }, { one: 1, two: 2 } ])
 
@@ -153,7 +157,7 @@ describe "Eggs.Model", ->
 			expectPropertyEvents(
 				-> 
 					p = testModel.attributes('one').take(2)
-					soon -> testModel.attributes('one', 1)
+					soon -> testModel.set('one', 1)
 					p
 				[ 'one', 1 ])
 
@@ -161,23 +165,23 @@ describe "Eggs.Model", ->
 			expectPropertyEvents(
 				-> 
 					p = testModel.attributes().take(2)
-					soon -> testModel.attributes('one', 1)
+					soon -> testModel.set('one', 1)
 					p
 				[ { one: 'one', two: 2 }, { one: 1, two: 2 } ])
 
 		it "should push updated attributes from attributes set call", ->
 			expectPropertyEvents(
-				-> testModel.attributes({ one: 1 }).take(1)
+				-> testModel.set({ one: 1 }).take(1)
 				[ { one: 1, two: 2 } ])
 
 		it "should push updated attributes from single attributes set call", ->
 			expectPropertyEvents(
-				-> testModel.attributes('one', 1).take(1)
+				-> testModel.set('one', 1).take(1)
 				[ { one: 1, two: 2 } ])
 
 		it "should push updated attributes from attributes unset call", ->
 			expectPropertyEvents(
-				-> testModel.attributes([ 'one' ], { unset: true }).take(1)
+				-> testModel.unset('one').take(1)
 				[ { two: 2 } ])
 
 		it "should NOT push attributes if nothing changed", ->
@@ -185,8 +189,8 @@ describe "Eggs.Model", ->
 				->
 					p = testModel.attributes().take(2)
 					soon ->
-						testModel.attributes({ two: 2 })
-						testModel.attributes({ one: 1 })
+						testModel.set({ two: 2 })
+						testModel.set({ one: 1 })
 					p
 				[ { one: 'one', two: 2 }, { one: 1, two: 2 } ])
 
@@ -195,8 +199,8 @@ describe "Eggs.Model", ->
 				->
 					p = testModel.attributes('one').take(2)
 					soon ->
-						testModel.attributes('one', 'one')
-						testModel.attributes('one', 1)
+						testModel.set('one', 'one')
+						testModel.set('one', 1)
 					p
 				[ 'one', 1 ])
 
@@ -207,9 +211,9 @@ describe "Eggs.Model", ->
 					soon ->
 						testModel.attributes().onValue((attr) ->
 							attr.three = 3)
-						testModel.attributes({ four: 4 })
-						testModel.attributes(['two'], { unset: true })
-						testModel.attributes(['one'], { unset: true })
+						testModel.set({ four: 4 })
+						testModel.unset('two')
+						testModel.unset(['one'])
 					p
 				[ ['one', 'two'], ['four', 'one', 'two'], ['four', 'one'], ['four'] ])
 			
@@ -222,7 +226,7 @@ describe "Eggs.Model", ->
 			expectPropertyEvents(
 				->
 					p = testModel.attributeNames().take(2).map((v) -> v.sort())
-					soon -> testModel.attributes({ three: 3 })
+					soon -> testModel.set({ three: 3 })
 					p
 				[ ['one', 'two'], ['one', 'three', 'two'] ])
 
@@ -230,7 +234,7 @@ describe "Eggs.Model", ->
 			expectPropertyEvents(
 				->
 					p = testModel.attributeNames().take(2).map((v) -> v.sort())
-					soon -> testModel.attributes(['two', 'one'], { unset: true })
+					soon -> testModel.set(['two', 'one'], { unset: true })
 					p
 				[ ['one', 'two'], [] ])
 		
@@ -265,14 +269,14 @@ describe "Eggs.Model", ->
 		it "should push an error on validation fail", ->
 			testModel.attributes().onError (err) ->
 				expect(err).toEqual('invalid')
-			testModel.attributes({ one: 1 })
+			testModel.set({ one: 1 })
 
 		it "should not validate if `shouldValidate` option is false", ->
 			testModel = new TestModel({ one: 1 }, { shouldValidate: false })
 			expectPropertyEvents(
 				->
 					p = testModel.attributes().take(2)
-					soon -> testModel.attributes({ one: 2 })
+					soon -> testModel.set({ one: 2 })
 					p
 				[ {one: 1}, {one: 2} ])
 			
@@ -293,7 +297,7 @@ describe "Eggs.Model", ->
 			expectPropertyEvents(
 				-> 
 					p = testModel.attributes().take(1)
-					soon -> testModel.attributes({ one: 'one' })
+					soon -> testModel.set({ one: 'one' })
 					p
 				[ { one: 'one' } ])
 
@@ -301,7 +305,7 @@ describe "Eggs.Model", ->
 			expectPropertyEvents(
 				-> 
 					p = testModel.attributes('one').take(1)
-					soon -> testModel.attributes('one', 'one')
+					soon -> testModel.set('one', 'one')
 					p
 				[ 'one' ])
 
@@ -309,7 +313,7 @@ describe "Eggs.Model", ->
 			expectPropertyEvents(
 				->
 					p = testModel.attributeNames().take(1).map((v) -> v.sort())
-					soon -> testModel.attributes({ one: 'valid', two: 2 })
+					soon -> testModel.set({ one: 'valid', two: 2 })
 					p
 				[ ['one', 'two'] ])
 
@@ -377,7 +381,7 @@ describe "Eggs.Model", ->
 				-> 
 					p = testModel.url().take(2)
 					soon ->
-						testModel.attributes([ 'id' ], { unset: true })
+						testModel.set([ 'id' ], { unset: true })
 					p
 				[ 'testurl/1', 'testurl' ])
 
@@ -398,7 +402,7 @@ describe "Eggs.Model", ->
 
 		it "should forward ajax error on fetch", ->
 			expectStreamEvents(
-				-> testModel.attributes('id', 2).take(1).flatMap -> testModel.fetch().take(1)
+				-> testModel.set('id', 2).take(1).flatMap -> testModel.fetch().take(1)
 				[ error() ])
 
 		it "should delete a model from the server if it exist", ->
@@ -410,10 +414,3 @@ describe "Eggs.Model", ->
 			expectStreamEvents(
 				-> testModel.unset('id').take(1).flatMap -> testModel.destroy()
 				[ null ])
-
-
-
-		
-
-
-	

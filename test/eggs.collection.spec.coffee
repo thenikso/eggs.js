@@ -19,6 +19,10 @@ describe "Eggs.Collection", ->
 		expect(emptyCollection.models).toBeDefined()
 		expect(emptyCollection.models() instanceof Bacon.Property).toBeTruthy()
 
+	# it "should have a `get` method returning a Bacon.Property", ->
+	# 	expect(emptyCollection.get).toBeDefined()
+	# 	expect(emptyCollection.get(0) instanceof Bacon.Property).toBeTruthy()
+
 	it "should have a `validModels` method returning a Bacon.Property", ->
 		expect(emptyCollection.validModels).toBeDefined()
 		expect(emptyCollection.validModels() instanceof Bacon.Property).toBeTruthy()
@@ -66,7 +70,7 @@ describe "Eggs.Collection", ->
 				->
 					p = testCollection.validModels().take(2)
 					soon ->
-						testModel3.attributes('number', 5)
+						testModel3.set('number', 5)
 					p
 				[ [testModel1, testModel2], [testModel1, testModel2, testModel3] ])
 
@@ -116,6 +120,14 @@ describe "Eggs.Collection", ->
 						testCollection.models([], { reset: true })
 					p
 				[ [testModel1, testModel4], [] ])
+
+		# it "should get a model", ->
+		# 	expectPropertyEvents(
+		# 		-> testCollection.get(testModel1).take(1)
+		# 		[ testModel1 ])
+		# 	expectPropertyEvents(
+		# 		-> testCollection.get(2).take(1)
+		# 		[ testModel2 ])
 
 	describe "with sorting", ->
 
