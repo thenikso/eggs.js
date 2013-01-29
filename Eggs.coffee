@@ -244,16 +244,30 @@ Eggs.Model = class Model
 
 # An `Eggs.Collection` groups together multiple model instances. 
 #
-# 	- `models` is the single most important method of the class. It allows to
-# 		access and modify the collection's content. Input parameters can be:
-# 		- *no parameters*: **gets** a Bacon.Property of valid collection models;
-# 		- *models, options*: **adds** or **remove** models depending on options.
-# 			*models* can be a signle Model or attributes object or an array of 
-# 			either. Options are:
-# 			- `reset`: deafult to **false**, indicates if the model should be 
-# 				emptied before adding the new content;
-# 			- `at`: specify the index at which start to insert new attributes;
-# 			- ...
+# 	- `models` returns a Bacon.Property that sends the models contained in the
+# 		collection. It acceps parameter to retrieve specific models:
+# 		- *model* will produce a Bacon.Property that will send the model when 
+# 			it is present in the collection or null otherwise;
+# 		- *id* will produce a Bacon.Property that will send the model with the
+# 			given identifier when present or null otherwise.
+# 	- `validModels` returns a Bacon.Property sending only models whose `valid`
+# 		Property is true. It forwards parameters to `models` if any.
+# 	- `sortedModels` returns a Bacon.Property sending models sorted using a 
+# 		comparator. The comparator can be specified to the collection extension,
+# 		as an instance construction option or as a parameter of this method:
+# 		- *attribute name string* will produce a Bacon.Property sending models
+# 			sorted by natural sort of the given model attribute;
+# 		- *function(a, b)* will produce a Bacon.Property sending models sorted
+# 			using the given comparator function.
+# 	- `add` modify the collection's content. It accepts the following parameters:
+# 		- *models, options*: adds or remove models depending on options. *Models*
+# 			can be an array or single Model instance or collection of attributes.
+# 		Options are:
+# 		- `reset`: deafult to **false**, indicates if the model should be 
+# 			emptied before adding the new content;
+# 		- `at`: specify the index at which start to insert new attributes;
+# 		- ...
+# 		Returns `models`.
 Eggs.Collection = class Collection
 
 	# The class of model elements contained in this collection. By default this
@@ -304,6 +318,11 @@ Eggs.Collection = class Collection
 		# The main accessor to collection's models
 		@models = (models, options) ->
 			return modelsProperty if arguments.length == 0
+			# TODO get accessor
+			modelsProperty
+
+		# Method to modify the collection content
+		@add = (models, options) ->
 			models = if _.isArray(models) then models.slice() else [models]
 			options or= {}
 			at = options.at ? modelsArray.length
@@ -322,12 +341,8 @@ Eggs.Collection = class Collection
 				modelsBus.push(modelsArray)
 			modelsProperty
 
-		@get = (ids) ->
-			ids = [ids] unless _.isArray(ids)
-
-
 		# Initialize models with constructor options
-		@models(cModels, cOptions)
+		@add(cModels, cOptions)
 
 		@initialize.apply(@, arguments)
 
@@ -363,6 +378,10 @@ Eggs.Collection = class Collection
 				.sort(comparator)
 				.map((am) -> am[1])))
 		.toProperty()
+
+	# Remove all collection's models and substitute them with those specified.
+	reset: (models, options) ->
+		@add(models, _.extend({}, options, { reset: true }))
 
 	# Returns a Bacon.Property that collects the specified attribute from each 
 	# valid model and sends arrays of those attributes.

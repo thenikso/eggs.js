@@ -19,9 +19,9 @@ describe "Eggs.Collection", ->
 		expect(emptyCollection.models).toBeDefined()
 		expect(emptyCollection.models() instanceof Bacon.Property).toBeTruthy()
 
-	# it "should have a `get` method returning a Bacon.Property", ->
-	# 	expect(emptyCollection.get).toBeDefined()
-	# 	expect(emptyCollection.get(0) instanceof Bacon.Property).toBeTruthy()
+	it "should have a `add` method returning a Bacon.Property", ->
+		expect(emptyCollection.add).toBeDefined()
+		expect(emptyCollection.add([]) instanceof Bacon.Property).toBeTruthy()
 
 	it "should have a `validModels` method returning a Bacon.Property", ->
 		expect(emptyCollection.validModels).toBeDefined()
@@ -77,7 +77,7 @@ describe "Eggs.Collection", ->
 		it "should add a model to the collection", ->
 			testModel4 = new TestModel
 			expectPropertyEvents(
-				-> testCollection.models(testModel4).take(1)
+				-> testCollection.add(testModel4).take(1)
 				[ [testModel1, testModel2, testModel3, testModel4] ])
 
 		it "should pluck values", ->
@@ -90,34 +90,34 @@ describe "Eggs.Collection", ->
 				-> 
 					p = testCollection.pluck('one').take(2)
 					soon ->
-						testCollection.models({ one: 'ONE' })
+						testCollection.add({ one: 'ONE' })
 					p
 				[ ['one', 1], ['one', 1, 'ONE'] ])
 
 		it "should NOT add a model if already in the collection", ->
 			expectPropertyEvents(
-				-> testCollection.models(testModel1).take(1)
+				-> testCollection.add(testModel1).take(1)
 				[ [testModel1, testModel2, testModel3] ])
 
 		it "should insert a model at a specified location", ->
 			testModel4 = new TestModel
 			expectPropertyEvents(
-				-> testCollection.models(testModel4, { at: 0 }).take(1)
+				-> testCollection.add(testModel4, { at: 0 }).take(1)
 				[ [testModel4, testModel1, testModel2, testModel3] ])
 
-		it "`validModels` should be usable like `models`", ->
-			testModel4 = new TestModel
-			expectPropertyEvents(
-				-> testCollection.validModels(testModel4, { at: 1 }).take(1)
-				[ [testModel1, testModel4, testModel2] ])
+		# it "`validModels` should be usable like `models`", ->
+		# 	testModel4 = new TestModel
+		# 	expectPropertyEvents(
+		# 		-> testCollection.validModels(testModel4, { at: 1 }).take(1)
+		# 		[ [testModel1, testModel4, testModel2] ])
 
 		it "should reset the collection and add new models", ->
 			testModel4 = new TestModel
 			expectPropertyEvents(
 				-> 
-					p = testCollection.models([testModel1, testModel4], { reset: true }).take(2)
+					p = testCollection.add([testModel1, testModel4], { reset: true }).take(2)
 					soon ->
-						testCollection.models([], { reset: true })
+						testCollection.reset([])
 					p
 				[ [testModel1, testModel4], [] ])
 
@@ -163,12 +163,6 @@ describe "Eggs.Collection", ->
 			expectPropertyEvents(
 				-> testCollection.sortedModels().take(1)
 				[ [testModel2, testModel1] ])
-
-		it "`sortedModels` should be usable like `models`", ->
-			testModel4 = new TestModel { order: 4 }
-			expectPropertyEvents(
-				-> testCollection.sortedModels(testModel4, { at: 0 }).take(1)
-				[ [testModel2, testModel1, testModel4] ])
 
 		it "should be able to specify a comparator function for sorting", ->
 			expectPropertyEvents(
