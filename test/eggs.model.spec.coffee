@@ -293,29 +293,37 @@ describe "Eggs.Model", ->
 		beforeEach ->
 			testModel = new TestModel one: 1
 
-		it "should NOT push initial attributes if invalid", ->
+		it "should push and empty object for initial attributes if invalid", ->
 			expectPropertyEvents(
 				-> 
-					p = testModel.attributes().take(1)
+					p = testModel.attributes().take(2)
 					soon -> testModel.set({ one: 'one' })
 					p
-				[ { one: 'one' } ])
+				[ {}, { one: 'one' } ])
 
-		it "should NOT push an initial single attributes if invalid", ->
+		it "should push undefined for an initial single attributes if invalid", ->
 			expectPropertyEvents(
 				-> 
-					p = testModel.attributes('one').take(1)
+					p = testModel.attributes('one').take(2)
 					soon -> testModel.set('one', 'one')
 					p
-				[ 'one' ])
+				[ undefined, 'one' ])
 
-		it "should NOT push initial attributeNames", ->
+		it "should push and empty array for initial attributeNames when invalid", ->
 			expectPropertyEvents(
 				->
-					p = testModel.attributeNames().take(1).map((v) -> v.sort())
+					p = testModel.attributeNames().take(2).map((v) -> v.sort())
 					soon -> testModel.set({ one: 'valid', two: 2 })
 					p
-				[ ['one', 'two'] ])
+				[ [], ['one', 'two'] ])
+
+		it "should return undefined for `id` when invalid", ->
+			expectPropertyEvents(
+				->
+					p = testModel.id().take(2)
+					soon -> testModel.set({ one: 'valid', id: 1 })
+					p
+				[ undefined, 1 ])
 
 		it "should return `false` from `valid` property", ->
 			expectPropertyEvents(

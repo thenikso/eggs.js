@@ -31,6 +31,9 @@ describe "Eggs.Collection", ->
 		expect(emptyCollection.sortedModels).toBeDefined()
 		expect(emptyCollection.sortedModels() instanceof Bacon.Property).toBeTruthy()
 
+	it "should have a `reset` method", ->
+		expect(emptyCollection.reset).toBeDefined()
+
 	it "should have a `pluck` method returning a Bacon.Property", ->
 		expect(emptyCollection.pluck).toBeDefined()
 		expect(emptyCollection.pluck('a') instanceof Bacon.Property).toBeTruthy()
@@ -59,6 +62,31 @@ describe "Eggs.Collection", ->
 			expectPropertyEvents(
 				-> testCollection.models().take(1)
 				[ [testModel1, testModel2, testModel3] ])
+
+		it "should send single models", ->
+			expectPropertyEvents(
+				-> testCollection.models(testModel2).take(1)
+				[ testModel2 ])
+			expectPropertyEvents(
+				-> testCollection.models(2).take(1)
+				[ testModel2 ])
+			expectPropertyEvents(
+				-> testCollection.models([testModel3, testModel2]).take(1)
+				[ [testModel3, testModel2] ])
+			expectPropertyEvents(
+				-> testCollection.models([3, testModel2]).take(1)
+				[ [undefined, testModel2] ])
+			testModel4 = new TestModel
+			expectPropertyEvents(
+				-> testCollection.models(testModel4).take(1)
+				[ undefined ])
+			expectPropertyEvents(
+				-> testCollection.models([2, testModel4]).take(1)
+				[ [testModel2, undefined] ])
+			testModel5 = new TestModel id: 2
+			expectPropertyEvents(
+				-> testCollection.models([2, testModel5]).take(1)
+				[ [testModel2, testModel2] ])
 
 		it "should send valid models", ->
 			expectPropertyEvents(

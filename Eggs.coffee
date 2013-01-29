@@ -142,6 +142,7 @@ Eggs.Model = class Model
 			unless _.isEqual(obj, attributes)
 				if options.shouldValidate and error = @validate?(obj)
 					attributesBus.error(error)
+					attributesBus.push({}) unless attributesAreValid
 				else
 					attributesAreValid = yes
 					attributes = _.clone(obj)
@@ -247,9 +248,9 @@ Eggs.Model = class Model
 # 	- `models` returns a Bacon.Property that sends the models contained in the
 # 		collection. It acceps parameter to retrieve specific models:
 # 		- *model* will produce a Bacon.Property that will send the model when 
-# 			it is present in the collection or null otherwise;
+# 			it is present by id in the collection or undefined otherwise;
 # 		- *id* will produce a Bacon.Property that will send the model with the
-# 			given identifier when present or null otherwise.
+# 			given identifier when present or undefined otherwise.
 # 	- `validModels` returns a Bacon.Property sending only models whose `valid`
 # 		Property is true. It forwards parameters to `models` if any.
 # 	- `sortedModels` returns a Bacon.Property sending models sorted using a 
@@ -296,7 +297,7 @@ Eggs.Collection = class Collection
 		modelsBus = new Bacon.Bus
 		modelsProperty = modelsBus.toProperty()
 		modelsArray = []
-		modelsById = {}
+		modelsByCId = {}
 
 		# Activate modelsProperty
 		modelsProperty.onValue ->
@@ -313,13 +314,33 @@ Eggs.Collection = class Collection
 		# getModel = (id) ->
 		# 	return null unless id?
 		# 	@modelIdAttribute = @modelClass.prototype.idAttribute unless @modelIdAttribute
-		# 	modelsById[id]
+		# 	modelsByCId[id]
 
 		# The main accessor to collection's models
-		@models = (models, options) ->
+		@models = (idsAndModels) ->
 			return modelsProperty if arguments.length == 0
-			# TODO get accessor
-			modelsProperty
+			if _.isArray(idsAndModels)
+				sendFirstOnly = no
+				idsAndModels = idsAndModels.slice()
+			else
+				sendFirstOnly = yes
+				idsAndModels = [idsAndModels]
+			Bacon.combineTemplate((if i instanceof Model then i.id() else i) for i in idsAndModels).flatMapLatest((idsOnly) -> 
+				modelsProperty.flatMapLatest((models) ->
+					Bacon.combineAsArray(m.id() for m in models).map((modelIds) ->
+						results = []
+						for id, idIndex in idsOnly
+							indexInModels = -1
+							indexInModels = modelIds.indexOf(id) if id?
+							indexInModels = models.indexOf(idsAndModels[idIndex]) if indexInModels < 0
+							if indexInModels >= 0
+								results.push(models[indexInModels])
+							else
+								results.push(undefined)
+						if sendFirstOnly
+							results[0]
+						else
+							results))).toProperty()
 
 		# Method to modify the collection content
 		@add = (models, options) ->
@@ -329,12 +350,12 @@ Eggs.Collection = class Collection
 			add = []
 			if options.reset
 				modelsArray = []
-				modelsById = {}
+				modelsByCId = {}
 			for model in models
 				model = prepareModel(model, options)
-				unless modelsById[model.cid]?
+				unless modelsByCId[model.cid]?
 					add.push(model)
-					modelsById[model.cid] = model
+					modelsByCId[model.cid] = model
 			if add.length
 				modelsArray[at..at-1] = add
 			if add.length or options.reset
