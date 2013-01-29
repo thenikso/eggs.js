@@ -350,9 +350,9 @@ Eggs.Collection = class Collection
 			at = options.at ? modelsArray.length
 			add = []
 			if options.reset
+				delete m.collection for m in modelsArray when m.collection is @
 				modelsArray = []
 				modelsByCId = {}
-				# TODO remove collection
 			for model in models
 				model = prepareModel(model, options)
 				unless modelsByCId[model.cid]?
@@ -398,8 +398,8 @@ Eggs.Collection = class Collection
 			customComparator = args[0]
 		else
 			@models(args...) if args.length
-		return @validModels() unless customComparator
-		if _.isString(customComparator)
+		return @validModels() unless customComparator?
+		unless _.isFunction(customComparator)
 			comparator = (a, b) =>
 				if a[0][customComparator] < b[0][customComparator] then -1
 				else if a[0][customComparator] > b[0][customComparator] then 1

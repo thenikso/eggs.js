@@ -157,17 +157,10 @@ describe "Eggs.Collection", ->
 				-> 
 					p = testCollection.add([testModel1, testModel4], { reset: true }).take(2)
 					soon ->
-						testCollection.reset([])
+						testCollection.reset([]).onValue ->
+							expect(testModel1.collection).not.toBeDefined()
 					p
 				[ [testModel1, testModel4], [] ])
-
-		# it "should get a model", ->
-		# 	expectPropertyEvents(
-		# 		-> testCollection.get(testModel1).take(1)
-		# 		[ testModel1 ])
-		# 	expectPropertyEvents(
-		# 		-> testCollection.get(2).take(1)
-		# 		[ testModel2 ])
 
 	describe "with sorting", ->
 
