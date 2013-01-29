@@ -267,8 +267,9 @@ Eggs.Model = class Model
 # 		- `reset`: deafult to **false**, indicates if the model should be 
 # 			emptied before adding the new content;
 # 		- `at`: specify the index at which start to insert new attributes;
-# 		- ...
 # 		Returns `models`.
+# 	- `remove` modify the collection's content by removing models. It accepts
+# 		an array of models or ids. Returns `models`.
 Eggs.Collection = class Collection
 
 	# The class of model elements contained in this collection. By default this
@@ -342,7 +343,7 @@ Eggs.Collection = class Collection
 						else
 							results))).toProperty()
 
-		# Method to modify the collection content
+		# Method to add models to the collection content
 		@add = (models, options) ->
 			models = if _.isArray(models) then models.slice() else [models]
 			options or= {}
@@ -351,6 +352,7 @@ Eggs.Collection = class Collection
 			if options.reset
 				modelsArray = []
 				modelsByCId = {}
+				# TODO remove collection
 			for model in models
 				model = prepareModel(model, options)
 				unless modelsByCId[model.cid]?
@@ -360,6 +362,17 @@ Eggs.Collection = class Collection
 				modelsArray[at..at-1] = add
 			if add.length or options.reset
 				modelsBus.push(modelsArray)
+			modelsProperty
+
+		# Method to remove models from the collection
+		@remove = (idsAndModels) ->
+			@models(idsAndModels).take(1).onValue((models) =>
+				models = [models] unless _.isArray(models)
+				for m in models
+					delete m.collection if m.collection is @
+					delete modelsByCId[m.cid]
+				modelsArray = modelsArray.filter((v) -> models.indexOf(v) < 0)
+				modelsBus.push(modelsArray))
 			modelsProperty
 
 		# Initialize models with constructor options

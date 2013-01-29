@@ -23,6 +23,10 @@ describe "Eggs.Collection", ->
 		expect(emptyCollection.add).toBeDefined()
 		expect(emptyCollection.add([]) instanceof Bacon.Property).toBeTruthy()
 
+	it "should have a `remove` method returning a Bacon.Property", ->
+		expect(emptyCollection.remove).toBeDefined()
+		expect(emptyCollection.remove([]) instanceof Bacon.Property).toBeTruthy()
+
 	it "should have a `validModels` method returning a Bacon.Property", ->
 		expect(emptyCollection.validModels).toBeDefined()
 		expect(emptyCollection.validModels() instanceof Bacon.Property).toBeTruthy()
@@ -107,6 +111,14 @@ describe "Eggs.Collection", ->
 			expectPropertyEvents(
 				-> testCollection.add(testModel4).take(1)
 				[ [testModel1, testModel2, testModel3, testModel4] ])
+
+		it "should remove a model from the collection", ->
+			expectPropertyEvents(
+				-> 
+					p = testCollection.remove(testModel3).take(2)
+					soon -> testCollection.remove([2, testModel1])
+					p
+				[ [testModel1, testModel2], [] ])
 
 		it "should pluck values", ->
 			expectPropertyEvents(
