@@ -41,10 +41,6 @@ describe "Eggs.Collection", ->
 	it "should have a `reset` method", ->
 		expect(emptyCollection.reset).toBeDefined()
 
-	it "should have a `pluck` method returning a Bacon.Property", ->
-		expect(emptyCollection.pluck).toBeDefined()
-		expect(emptyCollection.pluck('a') instanceof Bacon.Property).toBeTruthy()
-
 	describe "with models and validation", ->
 
 		class TestModel extends Eggs.Model
@@ -69,8 +65,14 @@ describe "Eggs.Collection", ->
 			expectPropertyEvents(
 				-> testCollection.models().take(1)
 				[ [testModel1, testModel2, testModel3] ])
+			expectPropertyEvents(
+				-> testCollection.models({}).take(1)
+				[ [testModel1, testModel2, testModel3] ])
 
 		it "should send single models", ->
+			expectPropertyEvents(
+				-> testCollection.models({ get: testModel2 }).take(1)
+				[ [testModel2] ])
 			expectPropertyEvents(
 				-> testCollection.models(testModel2).take(1)
 				[ [testModel2] ])
@@ -82,13 +84,13 @@ describe "Eggs.Collection", ->
 				[ [testModel3, testModel2] ])
 			expectPropertyEvents(
 				-> testCollection.models([3, testModel2]).take(1)
-				[ [undefined, testModel2] ])
+				[ [testModel2] ])
 			testModel4 = new TestModel
 			expectPropertyEvents(
-				-> testCollection.models(testModel4).take(1)
+				-> testCollection.models(testModel4, { includeUndefined: yes }).take(1)
 				[ [undefined] ])
 			expectPropertyEvents(
-				-> testCollection.models([2, testModel4]).take(1)
+				-> testCollection.models({ get: [2, testModel4], includeUndefined: yes }).take(1)
 				[ [testModel2, undefined] ])
 			testModel5 = new TestModel id: 2
 			expectPropertyEvents(
@@ -99,6 +101,11 @@ describe "Eggs.Collection", ->
 			expectPropertyEvents(
 				-> testCollection.validModels().take(1)
 				[ [testModel1, testModel2] ])
+
+		it "should send valid single models", ->
+			expectPropertyEvents(
+				-> testCollection.validModels([-1, testModel3, testModel2], { includeUndefined: yes }).take(1)
+				[ [undefined, testModel2] ])
 
 		it "should update valid models when a model becomes valid", ->
 			expectPropertyEvents(
@@ -123,23 +130,10 @@ describe "Eggs.Collection", ->
 					p
 				[ [testModel1, testModel2], [] ])
 
-		it "should send models attributes", ->
-			expectPropertyEvents(
-				-> testCollection.modelsAttributes(2).take(1)
-				[ [{ id: 2, one: 1, number: 2 }] ])
-			expectPropertyEvents(
-				-> testCollection.modelsAttributes().take(1)
-				[ [{ one: 'one' }, { id: 2, one: 1, number: 2 }, {}] ])
-
-		it "should pluck values", ->
-			expectPropertyEvents(
-				-> testCollection.pluck('one').take(1)
-				[ ['one', 1] ])
-
 		it "should add a model to the collection from attributes", ->
 			expectPropertyEvents(
 				-> 
-					p = testCollection.pluck('one').take(2)
+					p = testCollection.modelsAttributes({ from: 'models', pluck: 'one'}).take(2)
 					soon ->
 						testCollection.add({ one: 'ONE' })
 					p
@@ -214,6 +208,11 @@ describe "Eggs.Collection", ->
 				-> testCollection.sortedModels().take(1)
 				[ [testModel2, testModel1] ])
 
+		it "should accept a comparator as option", ->
+			expectPropertyEvents(
+				-> testCollection.sortedModels({ comparator: (a,b) -> b.order - a.order }).take(1)
+				[ [testModel1, testModel2] ])
+
 		it "should be able to specify a comparator function for sorting", ->
 			expectPropertyEvents(
 				-> testCollection.sortedModels((a,b) -> b.order - a.order).take(1)
@@ -224,5 +223,33 @@ describe "Eggs.Collection", ->
 				-> testCollection.sortedModels('one').take(1)
 				[ [testModel1, testModel2] ])
 
+		it "should sort single models", ->
+			expectPropertyEvents(
+				-> testCollection.sortedModels(2).take(1)
+				[ [testModel2] ])
+			expectPropertyEvents(
+				-> testCollection.sortedModels([2, 3]).take(1)
+				[ [testModel2] ])
+			expectPropertyEvents(
+				-> testCollection.sortedModels(-1, { includeUndefined: yes }).take(1)
+				[ [undefined] ])
+			expectPropertyEvents(
+				-> testCollection.sortedModels('one', { get: [-1, testModel1, 2], includeUndefined: yes }).take(1)
+				[ [undefined, testModel1, testModel2] ])
 
-
+		it "should send models attributes", ->
+			expectPropertyEvents(
+				-> testCollection.modelsAttributes({ get: 2 }).take(1)
+				[ [{ id: 2, one: 1, number: 2, order: 2 }] ])
+			expectPropertyEvents(
+				-> testCollection.modelsAttributes().take(1)
+				[ [{ id: 2, one: 1, number: 2, order: 2 }, { one: 'one', order: 3 }] ])
+			expectPropertyEvents(
+				-> testCollection.modelsAttributes(-1, { includeUndefined: yes }).take(1)
+				[ [undefined] ])
+			expectPropertyEvents(
+				-> testCollection.modelsAttributes({ from: 'models', pluck: 'one', includeUndefined: yes }).take(1)
+				[ ['one', 1, undefined] ])
+			expectPropertyEvents(
+				-> testCollection.modelsAttributes({ from: 'validModels' }).take(1)
+				[ [{ one: 'one', order: 3 }, { id: 2, one: 1, number: 2, order: 2 }] ])
