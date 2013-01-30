@@ -247,8 +247,8 @@ Eggs.Model = class Model
 #
 # 	- `models` returns a Bacon.Property that sends the models contained in the
 # 		collection. It acceps parameter to retrieve specific models:
-# 		- *model* will produce a Bacon.Property that will send the model when 
-# 			it is present by id in the collection or undefined otherwise;
+# 		- *model* will produce a Bacon.Property that will send an array with the 
+# 			model when it is present by id in the collection;
 # 		- *id* will produce a Bacon.Property that will send the model with the
 # 			given identifier when present or undefined otherwise.
 # 	- `validModels` returns a Bacon.Property sending only models whose `valid`
@@ -315,12 +315,7 @@ Eggs.Collection = class Collection
 		# The main accessor to collection's models
 		@models = (idsAndModels) ->
 			return modelsProperty if arguments.length == 0
-			if _.isArray(idsAndModels)
-				sendFirstOnly = no
-				idsAndModels = idsAndModels.slice()
-			else
-				sendFirstOnly = yes
-				idsAndModels = [idsAndModels]
+			idsAndModels = if _.isArray(idsAndModels) then idsAndModels.slice() else [idsAndModels]
 			Bacon.combineTemplate((if i instanceof Model then i.id() else i) for i in idsAndModels).flatMapLatest((idsOnly) -> 
 				modelsProperty.flatMapLatest((models) ->
 					Bacon.combineAsArray(m.id() for m in models).map((modelIds) ->
@@ -333,10 +328,7 @@ Eggs.Collection = class Collection
 								results.push(models[indexInModels])
 							else
 								results.push(undefined)
-						if sendFirstOnly
-							results[0]
-						else
-							results))).toProperty()
+						results))).toProperty()
 
 		# Method to add models to the collection content
 		@add = (models, options) ->
@@ -378,18 +370,12 @@ Eggs.Collection = class Collection
 	# Sends a model array only containing valid models
 	validModels: (args...) ->
 		@models(args...).flatMapLatest((ms) ->
-			sendFirstOnly = no
-			unless _.isArray(ms)
-				sendFirstOnly = yes
-				ms = [ms]
+			ms = [ms] unless _.isArray(ms)
 			Bacon.combineTemplate(m?.valid() for m in ms).map((validArray) ->
 				result = []
 				for v, i in validArray
 					result.push(ms[i]) if v
-				if sendFirstOnly
-					result[0]
-				else
-					result))
+				result))
 		.toProperty()
 
 	# Sends an ordered models array if `comparator` is specified.
@@ -412,6 +398,10 @@ Eggs.Collection = class Collection
 				.sort(comparator)
 				.map((am) -> am[1])))
 		.toProperty()
+
+	modelsAttributes: (args...) ->
+		@models(args...).flatMapLatest((ms) ->
+			Bacon.combineAsArray(m.attributes() for m in ms)).toProperty()
 
 	# Remove all collection's models and substitute them with those specified.
 	reset: (models, options) ->

@@ -35,6 +35,9 @@ describe "Eggs.Collection", ->
 		expect(emptyCollection.sortedModels).toBeDefined()
 		expect(emptyCollection.sortedModels() instanceof Bacon.Property).toBeTruthy()
 
+	it "should have a `modelsAttributes` method", ->
+		expect(emptyCollection.modelsAttributes).toBeDefined()
+
 	it "should have a `reset` method", ->
 		expect(emptyCollection.reset).toBeDefined()
 
@@ -70,10 +73,10 @@ describe "Eggs.Collection", ->
 		it "should send single models", ->
 			expectPropertyEvents(
 				-> testCollection.models(testModel2).take(1)
-				[ testModel2 ])
+				[ [testModel2] ])
 			expectPropertyEvents(
 				-> testCollection.models(2).take(1)
-				[ testModel2 ])
+				[ [testModel2] ])
 			expectPropertyEvents(
 				-> testCollection.models([testModel3, testModel2]).take(1)
 				[ [testModel3, testModel2] ])
@@ -83,7 +86,7 @@ describe "Eggs.Collection", ->
 			testModel4 = new TestModel
 			expectPropertyEvents(
 				-> testCollection.models(testModel4).take(1)
-				[ undefined ])
+				[ [undefined] ])
 			expectPropertyEvents(
 				-> testCollection.models([2, testModel4]).take(1)
 				[ [testModel2, undefined] ])
@@ -120,6 +123,14 @@ describe "Eggs.Collection", ->
 					p
 				[ [testModel1, testModel2], [] ])
 
+		it "should send models attributes", ->
+			expectPropertyEvents(
+				-> testCollection.modelsAttributes(2).take(1)
+				[ [{ id: 2, one: 1, number: 2 }] ])
+			expectPropertyEvents(
+				-> testCollection.modelsAttributes().take(1)
+				[ [{ one: 'one' }, { id: 2, one: 1, number: 2 }, {}] ])
+
 		it "should pluck values", ->
 			expectPropertyEvents(
 				-> testCollection.pluck('one').take(1)
@@ -149,10 +160,10 @@ describe "Eggs.Collection", ->
 			testModel4 = new TestModel id: 2
 			expectPropertyEvents(
 				-> testCollection.validModels(testModel4).take(1)
-				[ testModel2 ])
+				[ [testModel2] ])
 			expectPropertyEvents(
 				-> testCollection.validModels(2).take(1)
-				[ testModel2 ])
+				[ [testModel2] ])
 			expectPropertyEvents(
 				-> testCollection.validModels([testModel4, 3]).take(1)
 				[ [testModel2] ])
