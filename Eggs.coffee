@@ -1,7 +1,7 @@
 # Eggs 0.0.1
 
-isHash = (obj) -> 
-	(obj instanceof Object) and not (obj instanceof Array) and (typeof obj isnt 'array')
+_.mixin
+	isHash: (obj) -> (obj instanceof Object) and not (obj instanceof Array) and (typeof obj isnt 'array')
 
 Eggs = @Eggs = {}
 
@@ -120,12 +120,12 @@ Eggs.Model = class Model
 
 		# Setting model's attributes
 		@set = (obj, opts) ->
-			unless arguments.length > 1 or isHash(obj)
+			unless arguments.length > 1 or _.isHash(obj)
 				throw new Error("Invalid parameter for `set` method: #{obj}")
 			opts ?= {}
 			if opts.unset
 				if _.isString(obj) then obj = [obj]
-				else if isHash(obj) then obj = _.keys(obj)
+				else if _.isHash(obj) then obj = _.keys(obj)
 				newAttributes = _.omit(attributes, obj)
 				if _.difference(_.keys(attributes), _.keys(newAttributes))
 					attributes = newAttributes
@@ -312,11 +312,6 @@ Eggs.Collection = class Collection
 			opts.collection = @
 			new @modelClass(attrs, opts)
 
-		# getModel = (id) ->
-		# 	return null unless id?
-		# 	@modelIdAttribute = @modelClass.prototype.idAttribute unless @modelIdAttribute
-		# 	modelsByCId[id]
-
 		# The main accessor to collection's models
 		@models = (idsAndModels) ->
 			return modelsProperty if arguments.length == 0
@@ -396,9 +391,7 @@ Eggs.Collection = class Collection
 		customComparator = @comparator
 		if args.length is 1 and (_.isFunction(args[0]) or _.isString(args[0]))
 			customComparator = args[0]
-		else
-			@models(args...) if args.length
-		return @validModels() unless customComparator?
+		return @validModels(args...) unless customComparator?
 		unless _.isFunction(customComparator)
 			comparator = (a, b) =>
 				if a[0][customComparator] < b[0][customComparator] then -1
@@ -406,7 +399,7 @@ Eggs.Collection = class Collection
 				else 0
 		else
 			comparator = (a, b) => customComparator(a[0], b[0])
-		@validModels().flatMapLatest((ms) ->
+		@validModels(args...).flatMapLatest((ms) ->
 			Bacon.combineAsArray(m.attributes() for m in ms).map((mattrs) ->
 				([attrs, ms[i]] for attrs, i in mattrs)
 				.sort(comparator)

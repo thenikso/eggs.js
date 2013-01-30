@@ -31,7 +31,7 @@ seqs = []
 			if event.hasValue()
 				property.subscribe (event) ->
 					if event.isInitial()
-						events2.push(event.value)
+						events2.push(event.value())
 					Bacon.noMore
 	waitsFor streamEnded, t(50)
 	runs -> 
@@ -49,6 +49,7 @@ verifySingleSubscriber = (src, expectedEvents) ->
 		if event.isEnd()
 			ended = true
 		else
+			expect(event instanceof Bacon.Initial).toEqual(false)
 			events.push(toValue(event))
 
 	waitsFor streamEnded, t(50)
@@ -67,6 +68,7 @@ verifySwitching = (src, expectedEvents) ->
 			if event.isEnd()
 				ended = true
 			else
+				expect(event instanceof Bacon.Initial).toEqual(false)
 				events.push(toValue(event))
 				src.subscribe(newSink())
 				Bacon.noMore
@@ -111,12 +113,13 @@ toValue = (x) ->
 		else if x.isEnd()
 			"<end>"
 		else
-			x.value
+			x.value()
 	else
 		x
 
+justValues = (xs) ->
+	_.filter xs, hasValue
 hasValue = (x) ->
 	toValue(x) != "<error>"
 
-justValues = (xs) ->
-	_.filter xs, hasValue
+@toValues = toValues
