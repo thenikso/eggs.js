@@ -145,11 +145,17 @@ describe "Eggs.Collection", ->
 				-> testCollection.add(testModel4, { at: 0 }).take(1)
 				[ [testModel4, testModel1, testModel2, testModel3] ])
 
-		# it "`validModels` should be usable like `models`", ->
-		# 	testModel4 = new TestModel
-		# 	expectPropertyEvents(
-		# 		-> testCollection.validModels(testModel4, { at: 1 }).take(1)
-		# 		[ [testModel1, testModel4, testModel2] ])
+		it "`validModels` should get single models like `models`", ->
+			testModel4 = new TestModel id: 2
+			expectPropertyEvents(
+				-> testCollection.validModels(testModel4).take(1)
+				[ testModel2 ])
+			expectPropertyEvents(
+				-> testCollection.validModels(2).take(1)
+				[ testModel2 ])
+			expectPropertyEvents(
+				-> testCollection.validModels([testModel4, 3]).take(1)
+				[ [testModel2] ])
 
 		it "should reset the collection and add new models", ->
 			testModel4 = new TestModel

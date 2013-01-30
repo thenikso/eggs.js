@@ -377,13 +377,19 @@ Eggs.Collection = class Collection
 
 	# Sends a model array only containing valid models
 	validModels: (args...) ->
-		@models(args...) if args.length
-		@_validModels or= @models().flatMapLatest((ms) ->
-			Bacon.combineAsArray(m.valid() for m in ms).map((validArray) ->
+		@models(args...).flatMapLatest((ms) ->
+			sendFirstOnly = no
+			unless _.isArray(ms)
+				sendFirstOnly = yes
+				ms = [ms]
+			Bacon.combineTemplate(m?.valid() for m in ms).map((validArray) ->
 				result = []
 				for v, i in validArray
 					result.push(ms[i]) if v
-				result))
+				if sendFirstOnly
+					result[0]
+				else
+					result))
 		.toProperty()
 
 	# Sends an ordered models array if `comparator` is specified.
@@ -391,6 +397,7 @@ Eggs.Collection = class Collection
 		customComparator = @comparator
 		if args.length is 1 and (_.isFunction(args[0]) or _.isString(args[0]))
 			customComparator = args[0]
+			args = []
 		return @validModels(args...) unless customComparator?
 		unless _.isFunction(customComparator)
 			comparator = (a, b) =>
