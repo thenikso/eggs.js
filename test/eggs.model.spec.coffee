@@ -394,19 +394,25 @@ describe "Eggs.Model", ->
 				[ 'testurl/1', 'testurl' ])
 
 		it "should correctly fetch data", ->
-			expectStreamEvents(
-				-> testModel.fetch().take(1)
-				[ { id: 1, one: 1, two: 2, three: 'three' } ])
+			expectPropertyEvents(
+				-> 
+					p = testModel.attributes().take(2)
+					soon -> testModel.fetch()
+					p
+				[ { id : 1, one : 'one', two : 'two' }, { id: 1, one: 1, two: 2, three: 'three' } ])
 
 		it "should correctly update the model on save if id is set", ->
-			expectStreamEvents(
+			expectPropertyEvents(
 				-> testModel.save().take(1)
 				[ { id: 1, one: 'one', two: 'two' } ])
 
 		it "should correctly save the model if id is not set", ->
-			expectStreamEvents(
-				-> testModel.unset('id').take(1).flatMap -> testModel.save().take(1)
-				[ { id: 2, one: 'one', two: 'two' } ])
+			expectPropertyEvents(
+				-> 
+					p = testModel.unset('id').take(2)
+					testModel.save()
+					p
+				[ { one : 'one', two : 'two' }, { id: 2, one: 'one', two: 'two' } ])
 
 		it "should forward ajax error on fetch", ->
 			expectStreamEvents(

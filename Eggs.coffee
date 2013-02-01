@@ -72,7 +72,7 @@ Eggs.Model = class Model
 	# Parse is used to convert a server response into the object to be
 	# set as attributes for the model instance.
 	# It's a plain function returning an object that will be passed to
-	# `attributes` from the default `fetch` implementation.
+	# `set` from the default `fetch` implementation.
 	parse: (response) -> 
 		response
 
@@ -160,35 +160,45 @@ Eggs.Model = class Model
 		@initialize.apply(@, arguments)
 
 	# Initiates an AJAX request to fetch the model's data form the server.
-	# Returns a Bacon.EventStream that will send the updated attributes once
+	# Returns a Bacon.Property that will send the updated attributes once
 	# they have been set to the model.
 	fetch: ->
-		@url()
-		.take(1)
-		.flatMap((url) ->
-			Bacon.fromPromise $.ajax
-				type: 'GET'
-				dataType: 'json'
-				url: url)
-		.flatMap((result) =>
-			@set @parse(result))
+		fetch = @url()
+			.take(1)
+			.flatMapLatest((url) ->
+				Bacon.fromPromise $.ajax
+					type: 'GET'
+					dataType: 'json'
+					url: url)
+			.flatMapLatest((result) =>
+				@set @parse(result))
+			.take(1).toProperty()
+
+		# Activate the fetch reaction
+		fetch.onValue ->
+		fetch
 
 	# Initiates an AJAX request that sends the model's attributes to the server.
-	# Returns a Bacon.EventStream derived from the AJAX request promise.
+	# Returns a Bacon.Property derived from the AJAX request promise.
 	# TODO options (updateModel, wait, ...)
 	save: ->
-		Bacon.combineAsArray(@url(), @toJSON())
-		.take(1)
-		.flatMap((info) =>
-			[url, attributes] = info
-			Bacon.fromPromise $.ajax
-				type: if attributes[@idAttribute] then 'PUT' else 'POST'
-				dataType: 'json'
-				processData: false
-				url: url
-				data: attributes)
-		.flatMap((result) =>
-			@set @parse(result))
+		save = Bacon.combineAsArray(@url(), @toJSON())
+			.take(1)
+			.flatMapLatest((info) =>
+				[url, attributes] = info
+				Bacon.fromPromise $.ajax
+					type: if attributes[@idAttribute] then 'PUT' else 'POST'
+					dataType: 'json'
+					processData: false
+					url: url
+					data: attributes)
+			.flatMapLatest((result) =>
+				@set @parse(result))
+			.take(1).toProperty()
+
+		# Activate the save operation
+		save.onValue ->
+		save
 
 	# Destroy the model instance on the server if it was present.
 	# Returns a Bacon.EvnetStream that will push a single value returned from
@@ -288,9 +298,6 @@ Eggs.Collection = class Collection
 	# member is set to `Eggs.Model`.
 	modelClass: Model
 
-	# `modelIdAttribute` can be defined to use a specified model attribute as
-	# id. By default the model's `idAttribute` will be used.
-
 	# Called when constructing a new collection. By default this method does 
 	# nothing.
 	initialize: ->
@@ -298,7 +305,19 @@ Eggs.Collection = class Collection
 	# `comparator` can be defined as a string indicating an attribute to be 
 	# used for sorting or a function receiving a couple of models to compare.
 	# The function should return 0 if the models are equal -1 if the first is
-	# before the second and 1 otherwise.
+	# before the second and 1 otherwise. It will be used by `sortedModels` 
+	# property.
+
+	# `url` is the server URL to use to fetch collections. This URL will also be
+	# used by collection's model when saving. Unlike models `url` this is a plain
+	# string instead of a Property.
+
+	# Parse is used to convert a server response into the array of attributes to 
+	# be set as models for the collection instance.
+	# It's a plain function returning an object that will be passed to
+	# `add` from the default `fetch` implementation.
+	parse: (response) -> 
+		response
 
 	# The constructor will generate the `models` method to access and modify
 	# the Collection's elements.
@@ -387,7 +406,7 @@ Eggs.Collection = class Collection
 			modelsProperty
 
 		# Initialize models with constructor options
-		@add(cModels, cOptions)
+		@add(cModels ? [], cOptions)
 
 		@initialize.apply(@, arguments)
 
@@ -462,6 +481,36 @@ Eggs.Collection = class Collection
 	# Remove all collection's models and substitute them with those specified.
 	reset: (models, options) ->
 		@add(models, _.extend({}, options, { reset: true }))
+
+	# Initiates an AJAX request to fetch the colleciton's content form the server
+	# Returns a Bacon.EventStream that will send updated content once received.
+	fetch: (options) ->
+		options or= {}
+		url = options.url ? @url
+		throw new Error("Invalid URL for Collection #{@}") unless url?
+		fetch = Bacon.fromPromise($.ajax
+			type: 'GET'
+			dataType: 'json'
+			url: url)
+		.flatMap((result) =>
+			@add @parse(result), _.extend({ reset: yes }, options))
+		.take(1).toProperty()
+		fetch.onValue ->
+		fetch
+
+	# A utility method that will return a single options object from an arguments
+	# array. The arguments array can contain a shortcut as it's first object.
+	# For that one can specity which options it is shortcut and a method that 
+	# will detect if the first parameter is a shortcut.
+	# TODO make this working
+	# @getOptionsWithShortcut = (shortcut, shortcutDetector, argsArray) ->
+	# 	argsArray = shortcut if arguments.length < 3
+	# 	options = {}
+	# 	return options if argsArray.length is 0
+	# 	if shortcutDetector?(argsArray[0])
+	# 		options[shortcut] = argsArray[0]
+	# 		argsArray = argsArray.slice(1)
+	# 	options = _.extend(options, argsArray)
 
 
 # UNTESTED WORK FROM THIS POINT

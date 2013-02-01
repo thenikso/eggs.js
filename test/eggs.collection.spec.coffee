@@ -41,6 +41,9 @@ describe "Eggs.Collection", ->
 	it "should have a `reset` method", ->
 		expect(emptyCollection.reset).toBeDefined()
 
+	it "should have a `fetch` method", ->
+		expect(emptyCollection.fetch).toBeDefined()
+
 	describe "with models and validation", ->
 
 		class TestModel extends Eggs.Model
@@ -253,3 +256,67 @@ describe "Eggs.Collection", ->
 			expectPropertyEvents(
 				-> testCollection.modelsAttributes({ from: 'validModels' }).take(1)
 				[ [{ one: 'one', order: 3 }, { id: 2, one: 1, number: 2, order: 2 }] ])
+
+	describe "with AJAX update", ->
+
+		origAjax = window.$.ajax
+		ajaxMock = (options) ->
+			d = new jQuery.Deferred
+			setTimeout(
+				->
+					switch options.type 
+						when 'GET'
+							if options.url.indexOf('testcollection') >= 0
+								d.resolve [{ id: 1, one: 1 }, { id: 2, field: '' }]
+							else
+								d.reject "ajax read error"
+						# when 'PUT'
+						# 	if options.data?.id == 1
+						# 		d.resolve { id: 1 }
+						# 	else
+						# 		d.reject "ajax save error"
+						# when 'POST'
+						# 	if options.url.indexOf('/1') < 0 and not options.data?.id?
+						# 		d.resolve { id: 2, one: 'one', two: 'two' }
+						# 	else
+						# 		d.reject "ajax create error"
+						# when 'DELETE'
+						# 	if options.url.indexOf('testurl/1') >= 0
+						# 		d.resolve { status: 'ok' }
+						# 	else
+						# 		d.reject "ajax delete error"
+						else 
+							d.reject "ajax invalid request"
+				100)
+			d.promise()
+
+		class TestModel extends Eggs.Model
+			validate: (attrs) ->
+				'invalid' if attrs.number? and not _.isNumber(attrs.number)
+
+		class TestCollection extends Eggs.Collection
+			modelClass: TestModel
+			url: 'testcollection/' 
+
+		testModel1 = null
+		testModel2 = null
+		testModel3 = null
+		testCollection = null
+
+		beforeEach ->
+			window.$.ajax = ajaxMock
+			testModel1 = new TestModel { one: 'one', order: 3 }
+			testModel2 = new TestModel { id: 2, one: 1, number: 2, order: 2 }
+			testModel3 = new TestModel { id: 3, number: 'nan', order: 1 }
+			testCollection = new TestCollection [ testModel1, testModel2, testModel3 ]
+
+		afterEach ->
+			window.$.ajax = origAjax
+
+		it "should fetch data from the database", ->
+			expectPropertyEvents(
+				-> 
+					p = testCollection.modelsAttributes({ pluck: 'id' }).take(2)
+					soon -> testCollection.fetch()
+					p
+				[ [2], [1, 2] ])
