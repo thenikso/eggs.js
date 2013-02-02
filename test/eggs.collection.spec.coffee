@@ -161,11 +161,13 @@ describe "Eggs.Collection", ->
 		it "should merge a model when adding if the id is the same", ->
 			expectPropertyEvents(
 				->
-					p = testCollection.modelsAttributes({ from: 'models' }).take(2)
+					p = testCollection.modelsAttributes().take(3)
 					soon ->
-						testCollection.add({ id: 2, one: 'ONE' }, { merge: yes })
+						testCollection.add([{ id: 2, one: 'ONE' }, { id: 4, number: 4 }], { merge: yes })
 					p
-				[ [{ one: 'one' }, { id: 2, one: 1, number: 2 }, { }], [{ one: 'one' }, { id: 2, one: 'ONE', number: 2 }, { }] ])
+				[ [{ one: 'one' }, { id: 2, one: 1, number: 2 }], 
+					[{ one: 'one' }, { id: 2, one: 1, number: 2 }, { id: 4, number: 4 }],
+					[{ one: 'one' }, { id: 2, one: 'ONE', number: 2 }, { id: 4, number: 4 }] ])
 
 		it "should NOT add a model if already in the collection", ->
 			expectPropertyEvents(
@@ -347,14 +349,12 @@ describe "Eggs.Collection", ->
 					p
 				[ [2], [1, 2, 3] ])
 
-		# it "should fetch without resetting the collection content", ->
-		# 	testCollection.modelsAttributes({from: 'models'}).onValue (v) ->
-		# 		console.log v
-		# 	expectPropertyEvents(
-		# 		-> 
-		# 			p = testCollection.modelsAttributes().take(3)
-		# 			soon -> testCollection.fetch({ reset: no, merge: yes })
-		# 			p
-		# 		[ [{ field: 'one' }, { id: 2, field: 'two' }], 
-		# 			[{ field: 'one' }, { id: 2, field: '2' }],
-		# 			[{ field: 'one' }, { id: 1, field: '1' }, { id: 2, field: '2' }, { id: 3, field: '3' }] ])
+		it "should fetch without resetting the collection content", ->
+			expectPropertyEvents(
+				-> 
+					p = testCollection.modelsAttributes().take(3)
+					soon -> testCollection.fetch({ reset: no, merge: yes })
+					p
+				[ [{ field: 'one' }, { id: 2, field: 'two' }], 
+					[{ field: 'one' }, { id: 1, field: '1' }, { id: 2, field: 'two' }, { id: 3, field: '3' }],
+					[{ field: 'one' }, { id: 1, field: '1' }, { id: 2, field: '2' }, { id: 3, field: '3' }] ])

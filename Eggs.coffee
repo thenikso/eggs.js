@@ -419,19 +419,22 @@ Eggs.Collection = class Collection
 					add.push(model)
 					modelsByCId[model.cid] = model
 			if modelsArray.length
-				# Prepare to add new models in a non empty collection
 				if add.length
+					# Prepare to add new models in a non empty collection
 					at = options.at ? modelsArray.length
 					options.update = no if options.merge
 					@idAttribute = modelsArray[0].idAttribute unless @idAttribute?
+					# Update will contain objects with `model` and `set` that should 
+					# be set after updating the collection
+					updateModels = []
 					Bacon.combineAsArray(m.attributes() for m in modelsArray)
-					.flatMapLatest((modelsAttributes) =>
+					.take(1).flatMapLatest((modelsAttributes) =>
 						# Get all the ids of the models currently in the collection; this 
 						# will have the same index as models in modelsArray
 						modelsIds = _.pluck(modelsAttributes, @idAttribute)
 						# Get add array models attributes
 						Bacon.combineAsArray(m.attributes() for m in add)
-						.flatMapLatest((addAttributes) =>
+						.take(1).flatMapLatest((addAttributes) =>
 							# cleanAdd will have all the models actually to add after updates 
 							# of existing ones
 							cleanAdd = []
@@ -439,8 +442,9 @@ Eggs.Collection = class Collection
 								# Get the index of the model in modelsArray of an already 
 								# present model
 								if (addId = addAttrs[@idAttribute]) and (modelIndex = _.indexOf(modelsIds, addId)) >= 0
-									# With update or merge option, set the existing model
-									modelsArray[modelIndex].set(addAttrs, { reset: options.update }) if options.update?
+									# With update or merge option, will set the existing model
+									# after the collection update
+									updateModels.push({ model: modelsArray[modelIndex], set: addAttrs }) if options.update?
 									continue
 								# If no conflicts, add to cleanAdd
 								cleanAdd.push(add[addIndex])
@@ -452,6 +456,9 @@ Eggs.Collection = class Collection
 							modelsProperty))
 					# Activate the operation
 					.onValue -> Bacon.noMore
+					# Update single models
+					for u in updateModels
+						u.model.set(u.set, { reset: options.update })
 					# Just return modelsProperty as the previous reaction will be 
 					# already executed at this point
 					return modelsProperty
