@@ -44,6 +44,22 @@ describe "Eggs.Collection", ->
 	it "should have a `fetch` method", ->
 		expect(emptyCollection.fetch).toBeDefined()
 
+	it "should properly parse `model` function arguments", ->
+		testModel = new Eggs.Model
+		expect(Eggs.Collection.parseModelsArguments([])).toEqual({ get: [] })
+		expect(Eggs.Collection.parseModelsArguments({ a: 1 })).toEqual({ a: 1 })
+		expect(Eggs.Collection.parseModelsArguments(3, { a: 1 }, { b: 2 })).toEqual({ get: 3, a: 1, b: 2 })
+		expect(Eggs.Collection.parseModelsArguments(testModel)).toEqual({ get: testModel })
+
+	it "should properly parse `sortedModels` function arguments", ->
+		testModel = new Eggs.Model
+		testComparator = -> true
+		expect(Eggs.Collection.parseSortedModelsArguments({ a: 1 })).toEqual({ a: 1 })
+		expect(Eggs.Collection.parseSortedModelsArguments('a')).toEqual({ comparator: 'a' })
+		expect(Eggs.Collection.parseSortedModelsArguments(testComparator)).toEqual({ comparator: testComparator })
+		expect(Eggs.Collection.parseSortedModelsArguments(testModel)).toEqual({ get: testModel })
+		expect(Eggs.Collection.parseSortedModelsArguments(testComparator, { comparator: 'a' }, { b: 2 })).toEqual({ comparator: 'a', b: 2 })
+
 	describe "with models and validation", ->
 
 		class TestModel extends Eggs.Model

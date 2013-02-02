@@ -1,6 +1,30 @@
 # Eggs 0.0.1
 
+# Utilities
+# ---------
+
 isHash = (obj) -> (obj instanceof Object) and not (obj instanceof Array) and (typeof obj isnt 'array')
+
+# A utility function to construct a function that will accept options and an 
+# optional initial shortcut argument. Will return an array of two elements: 
+# un-detected shortcut or null, options object.
+parseArgumentsWithShortcutFactory = (shortcut, shortcutDetector) ->
+	(args...) ->
+		options = {}
+		return [null, options] if args.length is 0
+		short = args[0]
+		if shortcut? and (isShortcut = shortcutDetector?(short))
+			options[shortcut] = short
+			short = null
+		if isShortcut or short instanceof Model or not isHash(short)
+			args = args.slice(1)
+		else 
+			short = null
+		options = _.extend(options, args...)
+		[short, options]
+
+# Environment
+# -----------
 
 Eggs = @Eggs = {}
 
@@ -172,10 +196,10 @@ Eggs.Model = class Model
 					url: url)
 			.flatMapLatest((result) =>
 				@set @parse(result))
-			.take(1).toProperty()
+			.toProperty()
 
 		# Activate the fetch reaction
-		fetch.onValue ->
+		fetch.onValue -> Bacon.noMore
 		fetch
 
 	# Initiates an AJAX request that sends the model's attributes to the server.
@@ -194,10 +218,10 @@ Eggs.Model = class Model
 					data: attributes)
 			.flatMapLatest((result) =>
 				@set @parse(result))
-			.take(1).toProperty()
+			.toProperty()
 
 		# Activate the save operation
-		save.onValue ->
+		save.onValue -> Bacon.noMore
 		save
 
 	# Destroy the model instance on the server if it was present.
@@ -344,13 +368,12 @@ Eggs.Collection = class Collection
 			new @modelClass(attrs, opts)
 
 		# The main accessor to collection's models
-		@models = (options) ->
+		@models = ->
 			return modelsProperty if arguments.length == 0
 
 			# options may be a shortcut for options.get, in that case there may be 
 			# other options as a second parameter
-			if options instanceof Model or not isHash(options)
-				options = _.extend({ get:options }, arguments[1])
+			options = Collection.parseModelsArguments.apply(@, arguments)
 			return modelsProperty unless options.get?
 
 			# Make sure that options.get is an array and make a copy of it to avoid
@@ -425,15 +448,11 @@ Eggs.Collection = class Collection
 		.toProperty()
 
 	# Sends an ordered models array if `comparator` is specified
-	sortedModels: (args...) ->
+	sortedModels: ->
 		customComparator = @comparator
-		if args.length >= 1 
-			if _.isFunction(args[0]) or _.isString(args[0])
-				customComparator = args[0]
-				args = args.slice(1)
-			if isHash(options = args[0]) or isHash(options = args[1])
-				customComparator = options.comparator if options.comparator?
-		return @validModels(args...) unless customComparator?
+		options = Collection.parseSortedModelsArguments.apply(@, arguments)
+		customComparator = options.comparator if options.comparator?
+		return @validModels(options) unless customComparator?
 		unless _.isFunction(customComparator)
 			comparator = (a, b) =>
 				if a[0]?[customComparator] < b[0]?[customComparator] then -1
@@ -441,7 +460,7 @@ Eggs.Collection = class Collection
 				else 0
 		else
 			comparator = (a, b) => customComparator(a[0], b[0])
-		@validModels(args...).flatMapLatest((ms) ->
+		@validModels(options).flatMapLatest((ms) ->
 			Bacon.combineTemplate((if m? then m.attributes() else m) for m in ms).map((mattrs) ->
 				([attrs, ms[i]] for attrs, i in mattrs)
 				.sort(comparator)
@@ -450,13 +469,8 @@ Eggs.Collection = class Collection
 
 	modelsAttributes: (args...) ->
 		# Get options
-		options = { from: 'sortedModels' }
-		if args.length
-			if not (args[0] instanceof Model) and isHash(args[0])
-				options = _.extend(options, args[0])
-			else if isHash(args[1])
-				options = _.extend(options, args[1])
-
+		options = Collection.parseSortedModelsArguments({ from: 'sortedModels' }, args...)
+		
 		# Get which attributes to pluck
 		if _.isString(options.pluck)
 			pluckSingle = options.pluck
@@ -483,7 +497,7 @@ Eggs.Collection = class Collection
 		@add(models, _.extend({}, options, { reset: true }))
 
 	# Initiates an AJAX request to fetch the colleciton's content form the server
-	# Returns a Bacon.EventStream that will send updated content once received.
+	# Returns a Bacon.Property that will send updated content once received.
 	fetch: (options) ->
 		options or= {}
 		url = options.url ? @url
@@ -494,23 +508,23 @@ Eggs.Collection = class Collection
 			url: url)
 		.flatMap((result) =>
 			@add @parse(result), _.extend({ reset: yes }, options))
-		.take(1).toProperty()
-		fetch.onValue ->
+		.toProperty()
+		fetch.onValue -> Bacon.noMore
 		fetch
 
-	# A utility method that will return a single options object from an arguments
-	# array. The arguments array can contain a shortcut as it's first object.
-	# For that one can specity which options it is shortcut and a method that 
-	# will detect if the first parameter is a shortcut.
-	# TODO make this working
-	# @getOptionsWithShortcut = (shortcut, shortcutDetector, argsArray) ->
-	# 	argsArray = shortcut if arguments.length < 3
-	# 	options = {}
-	# 	return options if argsArray.length is 0
-	# 	if shortcutDetector?(argsArray[0])
-	# 		options[shortcut] = argsArray[0]
-	# 		argsArray = argsArray.slice(1)
-	# 	options = _.extend(options, argsArray)
+	# Utility method to parse arguments passed to `models`
+	@parseModelsArguments = _.wrap(
+		parseArgumentsWithShortcutFactory('get', (short) ->
+			short? and (short instanceof Model or not isHash(short))), 
+		(parseArgs, args...) ->
+			_.last(parseArgs(args...)))
+
+	# Utility method to parse arguments passed to `sortedModels`
+	@parseSortedModelsArguments = _.wrap(
+		parseArgumentsWithShortcutFactory('comparator', (short) -> 
+			_.isFunction(short) or _.isString(short)), 
+		(parseArgs, args...) => 
+			@parseModelsArguments.apply(@, parseArgs(args...)))
 
 
 # UNTESTED WORK FROM THIS POINT
