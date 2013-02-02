@@ -312,6 +312,10 @@ Eggs.Model = class Model
 # 		Options are:
 # 		- `reset`: deafult to **false**, indicates if the model should be 
 # 			emptied before adding the new content;
+# 		- `merge`: default to **false**, indicates if added models with the same 
+# 			idAttribute to existing models should be merged;
+# 		- `update`: default to **false**, is similar to `merge` but instead of 
+# 			merging models having the same idAttribute it will substitute them;
 # 		- `at`: specify the index at which start to insert new attributes;
 # 		Returns `models`.
 # 	- `remove` modify the collection's content by removing models. It accepts
@@ -325,6 +329,10 @@ Eggs.Collection = class Collection
 	# Called when constructing a new collection. By default this method does 
 	# nothing.
 	initialize: ->
+
+	# `idAttribute` can be defined as a string indicating the model attribute 
+	# name that the collection should use as id. If not specified, the 
+	# modelClass.idAttribute will be used.
 
 	# `comparator` can be defined as a string indicating an attribute to be 
 	# used for sorting or a function receiving a couple of models to compare.
@@ -400,7 +408,6 @@ Eggs.Collection = class Collection
 		@add = (models, options) ->
 			models = if _.isArray(models) then models.slice() else [models]
 			options or= {}
-			at = options.at ? modelsArray.length
 			add = []
 			if options.reset
 				delete m.collection for m in modelsArray when m.collection is @
@@ -411,8 +418,46 @@ Eggs.Collection = class Collection
 				unless modelsByCId[model.cid]?
 					add.push(model)
 					modelsByCId[model.cid] = model
-			if add.length
-				modelsArray[at..at-1] = add
+			if modelsArray.length
+				# Prepare to add new models in a non empty collection
+				if add.length
+					at = options.at ? modelsArray.length
+					options.update = no if options.merge
+					@idAttribute = modelsArray[0].idAttribute unless @idAttribute?
+					Bacon.combineAsArray(m.attributes() for m in modelsArray)
+					.flatMapLatest((modelsAttributes) =>
+						# Get all the ids of the models currently in the collection; this 
+						# will have the same index as models in modelsArray
+						modelsIds = _.pluck(modelsAttributes, @idAttribute)
+						# Get add array models attributes
+						Bacon.combineAsArray(m.attributes() for m in add)
+						.flatMapLatest((addAttributes) =>
+							# cleanAdd will have all the models actually to add after updates 
+							# of existing ones
+							cleanAdd = []
+							for addAttrs, addIndex in addAttributes
+								# Get the index of the model in modelsArray of an already 
+								# present model
+								if (addId = addAttrs[@idAttribute]) and (modelIndex = _.indexOf(modelsIds, addId)) >= 0
+									# With update or merge option, set the existing model
+									modelsArray[modelIndex].set(addAttrs, { reset: options.update }) if options.update?
+									continue
+								# If no conflicts, add to cleanAdd
+								cleanAdd.push(add[addIndex])
+							# We can finally add to the modelsArray and push the update
+							if cleanAdd.length
+								modelsArray[at..at-1] = cleanAdd
+								modelsBus.push(modelsArray)
+							# Will return the models property already updated with the change
+							modelsProperty))
+					# Activate the operation
+					.onValue -> Bacon.noMore
+					# Just return modelsProperty as the previous reaction will be 
+					# already executed at this point
+					return modelsProperty
+			else
+				# Adding models to a currently empty collection
+				modelsArray = add
 			if add.length or options.reset
 				modelsBus.push(modelsArray)
 			modelsProperty
@@ -469,7 +514,7 @@ Eggs.Collection = class Collection
 
 	modelsAttributes: (args...) ->
 		# Get options
-		options = Collection.parseSortedModelsArguments({ from: 'sortedModels' }, args...)
+		options = _.defaults(Collection.parseSortedModelsArguments(args...), { from: 'sortedModels' })
 		
 		# Get which attributes to pluck
 		if _.isString(options.pluck)
@@ -478,7 +523,7 @@ Eggs.Collection = class Collection
 			pluckMulti = options.pluck
 
 		# Retrieve attributes and pluck if neccessary
-		@[options.from](args...).flatMapLatest((ms) ->
+		@[options.from](options).flatMapLatest((ms) ->
 			t = Bacon.combineTemplate((if m then m.attributes() else m) for m in ms)
 			if pluckSingle?
 				t = t.map((attrsArray) -> 

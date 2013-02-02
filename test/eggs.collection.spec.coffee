@@ -158,6 +158,15 @@ describe "Eggs.Collection", ->
 					p
 				[ ['one', 1], ['one', 1, 'ONE'] ])
 
+		it "should merge a model when adding if the id is the same", ->
+			expectPropertyEvents(
+				->
+					p = testCollection.modelsAttributes({ from: 'models' }).take(2)
+					soon ->
+						testCollection.add({ id: 2, one: 'ONE' }, { merge: yes })
+					p
+				[ [{ one: 'one' }, { id: 2, one: 1, number: 2 }, { }], [{ one: 'one' }, { id: 2, one: 'ONE', number: 2 }, { }] ])
+
 		it "should NOT add a model if already in the collection", ->
 			expectPropertyEvents(
 				-> testCollection.add(testModel1).take(1)
@@ -283,7 +292,7 @@ describe "Eggs.Collection", ->
 					switch options.type 
 						when 'GET'
 							if options.url.indexOf('testcollection') >= 0
-								d.resolve [{ id: 1, one: 1 }, { id: 2, field: '' }]
+								d.resolve [{ id: 1, field: '1' }, { id: 2, field: '2' }, { id: 3, field: '3' }]
 							else
 								d.reject "ajax read error"
 						# when 'PUT'
@@ -308,11 +317,12 @@ describe "Eggs.Collection", ->
 
 		class TestModel extends Eggs.Model
 			validate: (attrs) ->
-				'invalid' if attrs.number? and not _.isNumber(attrs.number)
+				'invalid' if attrs.field? and _.isNumber(attrs.field)
 
 		class TestCollection extends Eggs.Collection
 			modelClass: TestModel
 			url: 'testcollection/' 
+			comparator: 'id'
 
 		testModel1 = null
 		testModel2 = null
@@ -321,9 +331,9 @@ describe "Eggs.Collection", ->
 
 		beforeEach ->
 			window.$.ajax = ajaxMock
-			testModel1 = new TestModel { one: 'one', order: 3 }
-			testModel2 = new TestModel { id: 2, one: 1, number: 2, order: 2 }
-			testModel3 = new TestModel { id: 3, number: 'nan', order: 1 }
+			testModel1 = new TestModel { field: 'one' }
+			testModel2 = new TestModel { id: 2, field: 'two' }
+			testModel3 = new TestModel { id: 3, field: 3 }
 			testCollection = new TestCollection [ testModel1, testModel2, testModel3 ]
 
 		afterEach ->
@@ -335,4 +345,16 @@ describe "Eggs.Collection", ->
 					p = testCollection.modelsAttributes({ pluck: 'id' }).take(2)
 					soon -> testCollection.fetch()
 					p
-				[ [2], [1, 2] ])
+				[ [2], [1, 2, 3] ])
+
+		# it "should fetch without resetting the collection content", ->
+		# 	testCollection.modelsAttributes({from: 'models'}).onValue (v) ->
+		# 		console.log v
+		# 	expectPropertyEvents(
+		# 		-> 
+		# 			p = testCollection.modelsAttributes().take(3)
+		# 			soon -> testCollection.fetch({ reset: no, merge: yes })
+		# 			p
+		# 		[ [{ field: 'one' }, { id: 2, field: 'two' }], 
+		# 			[{ field: 'one' }, { id: 2, field: '2' }],
+		# 			[{ field: 'one' }, { id: 1, field: '1' }, { id: 2, field: '2' }, { id: 3, field: '3' }] ])
