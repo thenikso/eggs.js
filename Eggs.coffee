@@ -5,28 +5,29 @@
 
 isHash = (obj) -> (obj instanceof Object) and not (obj instanceof Array) and (typeof obj isnt 'array')
 
-# A utility function to construct a function that will accept options and an 
-# optional initial shortcut argument. Will return an array of two elements: 
-# un-detected shortcut or null, options object.
-parseArgumentsWithShortcutFactory = (shortcut, shortcutDetector) ->
-	(args...) ->
-		options = {}
-		return [null, options] if args.length is 0
-		short = args[0]
-		if shortcut? and (isShortcut = shortcutDetector?(short))
-			options[shortcut] = short
-			short = null
-		if isShortcut or short instanceof Model or not isHash(short)
-			args = args.slice(1)
-		else 
-			short = null
-		options = _.extend(options, args...)
-		[short, options]
-
 # Environment
 # -----------
 
 Eggs = @Eggs = {}
+
+# Bacon extensions
+# ----------------
+
+# Get a field from an object
+Bacon.Observable.prototype.get = (field) ->
+	@map (obj) -> obj[field]
+
+# Pluck a filed from an array of objects
+Bacon.Observable.prototype.pluck = (field) ->
+	@filter(_.isArray).map((obj) -> _.pluck(obj, field))
+
+# Pick the given fields from an object
+Bacon.Observable.prototype.pick = (fields...) ->
+	@filter(_.isObject).map (obj) -> _.pick(obj, fields...)
+
+# Sends array of keys derived from an object
+Bacon.Observable.prototype.keys = ->
+	@filter(_.isObject).map(_.keys)
 
 # Eggs.Model
 # ----------
@@ -52,12 +53,7 @@ Eggs = @Eggs = {}
 #
 # Instance methods:
 # 	- `attributes` returns a Bacon.Property of valid attributes in the model.
-# 		Validation errors are sent through. It accepts parameters to get specific
-# 		attributes:
-# 		- *string*: returns a Bacon.Property sending values for the attribute with
-# 			the specified name;
-# 		- *array of strings*: returns a Bacon.Property sending collected values
-# 			of all attributes specified every time one of those attribute changes.
+# 		Validation errors are sent through. 
 # 	- `set` modify attributes. Attributes will be validated if needed and the
 # 		actual change will happen only if the set attribute is valid. `set` accepts
 # 		different inputs:
@@ -73,10 +69,6 @@ Eggs = @Eggs = {}
 # 		- `unset`: default to false, if true will remove the specified attributes
 # 			instead of setting them.
 # 		Returns `attributes`.
-#
-# Instance utility methods (also overridable):
-# 	- `attributeNames` returns a Bacon.Property that pushes an array with all the 
-# 		current valid attribute names in the model instance.
 #
 # Example Usage:
 # 	class MyModel extends Eggs.Model
@@ -133,13 +125,8 @@ Eggs.Model = class Model
 		attributesProperty.onValue ->
 
 		# The main accessor to model attributes.
-		@attributes = (names) ->
-			return attributesProperty if arguments.length == 0
-			return attributesProperty.map(".#{names}") if _.isString(names)
-			if _.isArray(names)
-				return attributesProperty.map (attributes) ->
-					(attributes[n] for n in names)
-			throw new Error("Invalid parameter for `set` method: #{names}")
+		@attributes = ->
+			return attributesProperty
 
 		# Setting model's attributes
 		@set = (obj, opts) ->
@@ -242,11 +229,6 @@ Eggs.Model = class Model
 			else
 				Bacon.once(null))
 
-	# A Bacon.Property sending array of strings with the names of current valid 
-	# model attributes.
-	attributeNames: ->
-		@_attributeNames or= @attributes().map(_.keys)
-
 	# Unset the given attributes in the model. The parameter can either be a string
 	# with the name of the attribute to unset, or an array of names.
 	unset: (attrNames) ->
@@ -276,27 +258,28 @@ Eggs.Model = class Model
 # Eggs.Collection
 # ---------------
 
+# Collection specific utility to extract attributes from a Models array.
+# Returns a Bacon.Property.
+Bacon.Observable.prototype.attributes = ->
+	@flatMapLatest((models) ->
+		Bacon.combineTemplate((if m then m.attributes?() else m) for m in models))
+	.toProperty()
+
 # An `Eggs.Collection` groups together multiple model instances. 
 #
 # 	- `models(options)` returns a Bacon.Property that sends the models 
 # 		contained in the collection. Options is an object that can contain:
 # 		- `get`: array or single model or id. This will make `models` return 
 # 			an array containing only models with those ids.
-# 		- `includeUndefined`: default to **false**, indicates if the returned
-# 			array when the `get` option is specified, should include `undefined`
-# 			for not found matches.
-# 		The `get` option can be shortcut as a first parameter for `models`.
-# 	- `validModels(options)` returns a Bacon.Property sending only models 
-# 		whose `valid` Property is true. It accepts `models`.
-# 	- `sortedModels(options)` returns a Bacon.Property sending models sorted 
-# 		using a comparator. The comparator can be specified to the collection
-# 		extension, as an instance construction option or as an option for this
-# 		method:
-# 		- `comparator`: a *string* indicating which model's attribute to use for
-# 			natural sorting the results or a *function(a, b)* receiving two models
-# 			attributes and returning the ordering between the two.
-# 		The `comparator` option can be shortcut as a first parameter for 
-# 		`sortedModels`; `models` options are also accepted.
+# 		- `valid`: default to **false** will make the property only push valid 
+# 			models.
+# 		- `sorted`: default to **false** will make the property push sorted 
+# 			models. If true, the collection's comparator will be used. The 
+# 			comparator can be specified to the collection extension, as an 
+# 			instance construction option or directly specified as `sorted`. The 
+# 			comparator can be a *string* indicating which model's attribute 
+# 			to use for natural sorting the results or a *function(a, b)* receiving 
+# 			two models attributes and returning the ordering between the two.
 # 	- `modelsAttributes(options)` returns a Bacon.Property that sends the 
 # 		collection models attributes. It accepts options of models getters and:
 # 		- `from`: by default to 'sortedModels', a string indicating from which 
@@ -305,8 +288,10 @@ Eggs.Model = class Model
 # 		- `pluck`: a model attribute name to retrieve instead of the complete 
 # 			model attributes; if an array of names is specified, only the given
 # 			attributes will be picked.
-# 	- `add` modify the collection's content. It accepts the following 
-# 		parameters:
+# 	- `add` modify the collection's content. If a model already exists it will 
+# 		be skipped unless `merge` or `update` is specified; in that case models 
+# 		will be merged or updated with new attributes *after* the collection 
+# 		update. It accepts the following parameters:
 # 		- *models, options*: adds or remove models depending on options. *Models*
 # 			can be an array or single Model instance or collection of attributes.
 # 		Options are:
@@ -376,33 +361,73 @@ Eggs.Collection = class Collection
 			new @modelClass(attrs, opts)
 
 		# The main accessor to collection's models
-		@models = ->
-			return modelsProperty if arguments.length == 0
-
+		@models = (args...) ->
 			# options may be a shortcut for options.get, in that case there may be 
 			# other options as a second parameter
-			options = Collection.parseModelsArguments.apply(@, arguments)
-			return modelsProperty unless options.get?
+			options = {}
+			if args.length
+				if args[0] instanceof Model or _.isNumber(args[0]) or _.isString(args[0]) or _.isArray(args[0])
+					options = { get: args[0] }
+					args = args.slice(1)
+				options = _.extend(options, args...)
 
-			# Make sure that options.get is an array and make a copy of it to avoid
-			# external changes
-			idsAndModels = if _.isArray(options.get) then options.get.slice() else [options.get]
-			includeUndefined = options.includeUndefined
+			models = modelsProperty
 
-			# Retrieve all the requested models
-			Bacon.combineTemplate((if i instanceof Model then i.id() else i) for i in idsAndModels).flatMapLatest((idsOnly) -> 
-				modelsProperty.flatMapLatest((models) ->
-					Bacon.combineAsArray(m.id() for m in models).map((modelIds) ->
-						results = []
-						for id, idIndex in idsOnly
-							indexInModels = -1
-							indexInModels = modelIds.indexOf(id) if id?
-							indexInModels = models.indexOf(idsAndModels[idIndex]) if indexInModels < 0
-							if indexInModels >= 0
-								results.push(models[indexInModels])
-							else if includeUndefined
-								results.push(undefined)
-						results))).toProperty()
+			if options.get?
+				# Make sure that options.get is an array and make a copy of it to avoid
+				# external changes
+				idsAndModels = if _.isArray(options.get) then options.get.slice() else [options.get]
+
+				# Retrieve all the requested models
+				models = Bacon.combineTemplate((if i instanceof Model then i.id() else i) for i in idsAndModels).flatMapLatest((idsOnly) -> 
+					modelsProperty.flatMapLatest((ms) ->
+						Bacon.combineAsArray(m.id() for m in ms).map((modelIds) ->
+							results = []
+							for id, idIndex in idsOnly
+								indexInModels = -1
+								indexInModels = modelIds.indexOf(id) if id?
+								indexInModels = ms.indexOf(idsAndModels[idIndex]) if indexInModels < 0
+								if indexInModels >= 0
+									results.push(ms[indexInModels])
+							results))).toProperty()
+
+			# Get valid models if needed
+			if options.valid
+				models = models.flatMapLatest((ms) ->
+					Bacon.combineAsArray(m.valid() for m in ms)
+					.map((validArray) ->
+						result = []
+						for v, i in validArray
+							result.push(ms[i]) if v
+						result))
+				.toProperty()
+
+			# Get sorted models if needed
+			if options.sorted or options.comparator?
+				comparator = options.sorted unless _.isBoolean(options.sorted)
+				comparator = options.comparator if options.comparator?
+				comparator ?= @comparator
+				throw new Error("Invalid comparator for sorted models: #{comparator}") unless comparator?
+				unless _.isFunction(comparator)
+					comparatorFunction = (a, b) =>
+						if a[0]?[comparator] < b[0]?[comparator] then -1
+						else if a[0]?[comparator] > b[0]?[comparator] then 1
+						else 0
+				else
+					comparatorFunction = (a, b) => comparator(a[0], b[0])
+				models = models.flatMapLatest((ms) ->
+					Bacon.combineAsArray(m.attributes() for m in ms)
+					.map((mattrs) ->
+						([attrs, ms[i]] for attrs, i in mattrs)
+						.sort(comparatorFunction)
+						.map((am) -> am[1])))
+				.toProperty()
+
+			# Return the builded models property
+			models
+
+		# The models Property is decorated with a `collection` attribute
+		@models.collection = @
 
 		# Method to add models to the collection content
 		@add = (models, options) ->
@@ -487,62 +512,19 @@ Eggs.Collection = class Collection
 
 	# Sends a model array only containing valid models
 	validModels: (args...) ->
-		@models(args...).flatMapLatest((ms) ->
-			ms = [ms] unless _.isArray(ms)
-			Bacon.combineTemplate((if m? then m.valid() else m) for m in ms).map((validArray) ->
-				result = []
-				for v, i in validArray
-					if v
-						result.push(ms[i])
-					else if v isnt false
-						result.push(v)
-				result))
-		.toProperty()
+		args.push({ valid: yes })
+		@models(args...)
 
 	# Sends an ordered models array if `comparator` is specified
-	sortedModels: ->
-		customComparator = @comparator
-		options = Collection.parseSortedModelsArguments.apply(@, arguments)
-		customComparator = options.comparator if options.comparator?
-		return @validModels(options) unless customComparator?
-		unless _.isFunction(customComparator)
-			comparator = (a, b) =>
-				if a[0]?[customComparator] < b[0]?[customComparator] then -1
-				else if a[0]?[customComparator] > b[0]?[customComparator] then 1
-				else 0
+	sortedModels: (args...) ->
+		if args.length
+			if _.isString(args[0]) or _.isFunction(args[0])
+				args = [{ valid: yes, sorted: args[0] }].concat(args.slice(1))
+			else
+				args.push({ valid: yes, sorted: yes })
 		else
-			comparator = (a, b) => customComparator(a[0], b[0])
-		@validModels(options).flatMapLatest((ms) ->
-			Bacon.combineTemplate((if m? then m.attributes() else m) for m in ms).map((mattrs) ->
-				([attrs, ms[i]] for attrs, i in mattrs)
-				.sort(comparator)
-				.map((am) -> am[1])))
-		.toProperty()
-
-	modelsAttributes: (args...) ->
-		# Get options
-		options = _.defaults(Collection.parseSortedModelsArguments(args...), { from: 'sortedModels' })
-		
-		# Get which attributes to pluck
-		if _.isString(options.pluck)
-			pluckSingle = options.pluck
-		else if _.isArray(options.pluck)
-			pluckMulti = options.pluck
-
-		# Retrieve attributes and pluck if neccessary
-		@[options.from](options).flatMapLatest((ms) ->
-			t = Bacon.combineTemplate((if m then m.attributes() else m) for m in ms)
-			if pluckSingle?
-				t = t.map((attrsArray) -> 
-					attrsArray.filter((attrs) ->
-						attrs?[pluckSingle]? or options.includeUndefined).map((attrs) -> 
-							attrs[pluckSingle]))
-			else if pluckMulti?
-				t = t.map((attrsArray) -> 
-					attrsArray.filter((attrs) ->
-						attrs? or options.includeUndefined).map((attrs) -> 
-							_.pick(attrs, pluckMulti)))
-			t).toProperty()
+			args = [{ valid: yes, sorted: yes }]
+		@models(args...)
 
 	# Remove all collection's models and substitute them with those specified.
 	reset: (models, options) ->
@@ -564,20 +546,10 @@ Eggs.Collection = class Collection
 		fetch.onValue -> Bacon.noMore
 		fetch
 
-	# Utility method to parse arguments passed to `models`
-	@parseModelsArguments = _.wrap(
-		parseArgumentsWithShortcutFactory('get', (short) ->
-			short? and (short instanceof Model or not isHash(short))), 
-		(parseArgs, args...) ->
-			_.last(parseArgs(args...)))
-
-	# Utility method to parse arguments passed to `sortedModels`
-	@parseSortedModelsArguments = _.wrap(
-		parseArgumentsWithShortcutFactory('comparator', (short) -> 
-			_.isFunction(short) or _.isString(short)), 
-		(parseArgs, args...) => 
-			@parseModelsArguments.apply(@, parseArgs(args...)))
-
+# Bacon.Property.prototype.attributes
+# TODO make validModels, sortedModels as methods to models() property.
+# TODO make attributes as method to models() property (and sorted, valid)
+# TODO add `create` or `sync` option to add and `waitSync`
 
 # UNTESTED WORK FROM THIS POINT
 # -----------------------------

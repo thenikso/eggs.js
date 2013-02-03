@@ -33,32 +33,16 @@ describe "Eggs.Collection", ->
 
 	it "should have a `sortedModels` method returning a Bacon.Property", ->
 		expect(emptyCollection.sortedModels).toBeDefined()
-		expect(emptyCollection.sortedModels() instanceof Bacon.Property).toBeTruthy()
+		expect(emptyCollection.sortedModels('a') instanceof Bacon.Property).toBeTruthy()
 
-	it "should have a `modelsAttributes` method", ->
-		expect(emptyCollection.modelsAttributes).toBeDefined()
+	it "should have a `attributes` method for `models` property", ->
+		expect(emptyCollection.models().attributes).toBeDefined()
 
 	it "should have a `reset` method", ->
 		expect(emptyCollection.reset).toBeDefined()
 
 	it "should have a `fetch` method", ->
 		expect(emptyCollection.fetch).toBeDefined()
-
-	it "should properly parse `model` function arguments", ->
-		testModel = new Eggs.Model
-		expect(Eggs.Collection.parseModelsArguments([])).toEqual({ get: [] })
-		expect(Eggs.Collection.parseModelsArguments({ a: 1 })).toEqual({ a: 1 })
-		expect(Eggs.Collection.parseModelsArguments(3, { a: 1 }, { b: 2 })).toEqual({ get: 3, a: 1, b: 2 })
-		expect(Eggs.Collection.parseModelsArguments(testModel)).toEqual({ get: testModel })
-
-	it "should properly parse `sortedModels` function arguments", ->
-		testModel = new Eggs.Model
-		testComparator = -> true
-		expect(Eggs.Collection.parseSortedModelsArguments({ a: 1 })).toEqual({ a: 1 })
-		expect(Eggs.Collection.parseSortedModelsArguments('a')).toEqual({ comparator: 'a' })
-		expect(Eggs.Collection.parseSortedModelsArguments(testComparator)).toEqual({ comparator: testComparator })
-		expect(Eggs.Collection.parseSortedModelsArguments(testModel)).toEqual({ get: testModel })
-		expect(Eggs.Collection.parseSortedModelsArguments(testComparator, { comparator: 'a' }, { b: 2 })).toEqual({ comparator: 'a', b: 2 })
 
 	describe "with models and validation", ->
 
@@ -106,11 +90,11 @@ describe "Eggs.Collection", ->
 				[ [testModel2] ])
 			testModel4 = new TestModel
 			expectPropertyEvents(
-				-> testCollection.models(testModel4, { includeUndefined: yes }).take(1)
-				[ [undefined] ])
+				-> testCollection.models(testModel4).take(1)
+				[ [] ])
 			expectPropertyEvents(
-				-> testCollection.models({ get: [2, testModel4], includeUndefined: yes }).take(1)
-				[ [testModel2, undefined] ])
+				-> testCollection.models({ get: [2, testModel4] }).take(1)
+				[ [testModel2] ])
 			testModel5 = new TestModel id: 2
 			expectPropertyEvents(
 				-> testCollection.models([2, testModel5]).take(1)
@@ -123,8 +107,8 @@ describe "Eggs.Collection", ->
 
 		it "should send valid single models", ->
 			expectPropertyEvents(
-				-> testCollection.validModels([-1, testModel3, testModel2], { includeUndefined: yes }).take(1)
-				[ [undefined, testModel2] ])
+				-> testCollection.validModels([-1, testModel3, testModel2]).take(1)
+				[ [testModel2] ])
 
 		it "should update valid models when a model becomes valid", ->
 			expectPropertyEvents(
@@ -152,7 +136,7 @@ describe "Eggs.Collection", ->
 		it "should add a model to the collection from attributes", ->
 			expectPropertyEvents(
 				-> 
-					p = testCollection.modelsAttributes({ from: 'models', pluck: 'one'}).take(2)
+					p = testCollection.validModels().attributes().pluck('one').take(2)
 					soon ->
 						testCollection.add({ one: 'ONE' })
 					p
@@ -161,13 +145,24 @@ describe "Eggs.Collection", ->
 		it "should merge a model when adding if the id is the same", ->
 			expectPropertyEvents(
 				->
-					p = testCollection.modelsAttributes().take(3)
+					p = testCollection.validModels().attributes().take(3)
 					soon ->
 						testCollection.add([{ id: 2, one: 'ONE' }, { id: 4, number: 4 }], { merge: yes })
 					p
 				[ [{ one: 'one' }, { id: 2, one: 1, number: 2 }], 
 					[{ one: 'one' }, { id: 2, one: 1, number: 2 }, { id: 4, number: 4 }],
 					[{ one: 'one' }, { id: 2, one: 'ONE', number: 2 }, { id: 4, number: 4 }] ])
+
+		it "should update a model when adding if the id is the same", ->
+			expectPropertyEvents(
+				->
+					p = testCollection.validModels().attributes().take(3)
+					soon ->
+						testCollection.add([{ id: 2, one: 'ONE' }, { id: 4, number: 4 }], { update: yes })
+					p
+				[ [{ one: 'one' }, { id: 2, one: 1, number: 2 }], 
+					[{ one: 'one' }, { id: 2, one: 1, number: 2 }, { id: 4, number: 4 }],
+					[{ one: 'one' }, { id: 2, one: 'ONE' }, { id: 4, number: 4 }] ])
 
 		it "should NOT add a model if already in the collection", ->
 			expectPropertyEvents(
@@ -261,27 +256,27 @@ describe "Eggs.Collection", ->
 				-> testCollection.sortedModels([2, 3]).take(1)
 				[ [testModel2] ])
 			expectPropertyEvents(
-				-> testCollection.sortedModels(-1, { includeUndefined: yes }).take(1)
-				[ [undefined] ])
+				-> testCollection.sortedModels(-1).take(1)
+				[ [] ])
 			expectPropertyEvents(
-				-> testCollection.sortedModels('one', { get: [-1, testModel1, 2], includeUndefined: yes }).take(1)
-				[ [undefined, testModel1, testModel2] ])
+				-> testCollection.sortedModels({ get: [-1, testModel1, 2] }).take(1)
+				[ [testModel2, testModel1] ])
 
 		it "should send models attributes", ->
 			expectPropertyEvents(
-				-> testCollection.modelsAttributes({ get: 2 }).take(1)
+				-> testCollection.sortedModels({ get: 2 }).attributes().take(1)
 				[ [{ id: 2, one: 1, number: 2, order: 2 }] ])
 			expectPropertyEvents(
-				-> testCollection.modelsAttributes().take(1)
+				-> testCollection.sortedModels().attributes().take(1)
 				[ [{ id: 2, one: 1, number: 2, order: 2 }, { one: 'one', order: 3 }] ])
 			expectPropertyEvents(
-				-> testCollection.modelsAttributes(-1, { includeUndefined: yes }).take(1)
-				[ [undefined] ])
+				-> testCollection.sortedModels(-1).attributes().take(1)
+				[ [] ])
 			expectPropertyEvents(
-				-> testCollection.modelsAttributes({ from: 'models', pluck: 'one', includeUndefined: yes }).take(1)
+				-> testCollection.models().attributes().pluck('one').take(1)
 				[ ['one', 1, undefined] ])
 			expectPropertyEvents(
-				-> testCollection.modelsAttributes({ from: 'validModels' }).take(1)
+				-> testCollection.validModels().attributes().take(1)
 				[ [{ one: 'one', order: 3 }, { id: 2, one: 1, number: 2, order: 2 }] ])
 
 	describe "with AJAX update", ->
@@ -344,15 +339,15 @@ describe "Eggs.Collection", ->
 		it "should fetch data from the database", ->
 			expectPropertyEvents(
 				-> 
-					p = testCollection.modelsAttributes({ pluck: 'id' }).take(2)
+					p = testCollection.validModels().attributes().pluck('id').take(2)
 					soon -> testCollection.fetch()
 					p
-				[ [2], [1, 2, 3] ])
+				[ [undefined, 2], [1, 2, 3] ])
 
 		it "should fetch without resetting the collection content", ->
 			expectPropertyEvents(
 				-> 
-					p = testCollection.modelsAttributes().take(3)
+					p = testCollection.sortedModels().attributes().take(3)
 					soon -> testCollection.fetch({ reset: no, merge: yes })
 					p
 				[ [{ field: 'one' }, { id: 2, field: 'two' }], 
