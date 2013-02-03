@@ -262,7 +262,7 @@ Eggs.Model = class Model
 # Returns a Bacon.Property.
 Bacon.Observable.prototype.attributes = ->
 	@flatMapLatest((models) ->
-		Bacon.combineTemplate((if m then m.attributes?() else m) for m in models))
+		Bacon.combineAsArray(m.attributes() for m in models))
 	.toProperty()
 
 # An `Eggs.Collection` groups together multiple model instances. 
@@ -546,9 +546,6 @@ Eggs.Collection = class Collection
 		fetch.onValue -> Bacon.noMore
 		fetch
 
-# Bacon.Property.prototype.attributes
-# TODO make validModels, sortedModels as methods to models() property.
-# TODO make attributes as method to models() property (and sorted, valid)
 # TODO add `create` or `sync` option to add and `waitSync`
 
 # UNTESTED WORK FROM THIS POINT
