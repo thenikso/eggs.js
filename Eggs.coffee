@@ -3,31 +3,14 @@
 # Utilities
 # ---------
 
-isHash = (obj) -> (obj instanceof Object) and not (obj instanceof Array) and (typeof obj isnt 'array')
+unless _.isPlainObject
+	_.mixin isPlainObject: (obj) ->
+		(obj instanceof Object) and not (obj instanceof Array) and (typeof obj isnt 'array')
 
 # Environment
 # -----------
 
 Eggs = @Eggs = {}
-
-# Bacon extensions
-# ----------------
-
-# Get a field from an object
-Bacon.Observable.prototype.get = (field) ->
-	@map (obj) -> obj[field]
-
-# Pluck a filed from an array of objects
-Bacon.Observable.prototype.pluck = (field) ->
-	@filter(_.isArray).map((obj) -> _.pluck(obj, field))
-
-# Pick the given fields from an object
-Bacon.Observable.prototype.pick = (fields...) ->
-	@filter(_.isObject).map (obj) -> _.pick(obj, fields...)
-
-# Sends array of keys derived from an object
-Bacon.Observable.prototype.keys = ->
-	@filter(_.isObject).map(_.keys)
 
 # Eggs.Model
 # ----------
@@ -37,15 +20,15 @@ Bacon.Observable.prototype.keys = ->
 # script's `extend` or `Eggs.Model.extend`. Methods that may be extended are:
 # 	- `initialize` will be called when a new isntance of the model is created;
 # 	- `validate` will be called with an object of attributes that should be
-# 		validated. Returns an error (usually a string) or nothing if the validation
-# 		was successful.
+# 		validated. Returns an error (usually a string) or nothing if the 
+# 		validation was successful.
 #
 # Once extended, the new model class can be instantiated to represent an entry.
 # The constructor accepts the initial *attributes* for the new model instance
-# and *options*. Initial attributes will be passed through the validation process
-# if any. Available options are:
-# 	- `shouldValidate` defaults to `true` and indicates if the model isntance should
-# 		be validated.
+# and *options*. Initial attributes will be passed through the validation 
+# process if any. Available options are:
+# 	- `shouldValidate` defaults to `true` and indicates if the model isntance 
+# 		should be validated.
 #
 # Instance overridable methods:
 # 	- `idAttribute` is the name of the attribute used to compute `id` and 
@@ -55,19 +38,24 @@ Bacon.Observable.prototype.keys = ->
 # 	- `attributes` returns a Bacon.Property of valid attributes in the model.
 # 		Validation errors are sent through. 
 # 	- `set` modify attributes. Attributes will be validated if needed and the
-# 		actual change will happen only if the set attribute is valid. `set` accepts
-# 		different inputs:
-# 		- *object, options*: set attributes by adding or modifying the current ones;
-# 		- *name string, value*: will set or add the single attribute with the given 
-# 			value if possible;
-# 		- *names array, options*: apply options derived actions to attributes in the
-# 			array.
+# 		actual change will happen only if the set attribute is valid. `set` 
+# 		accepts different inputs:
+# 		- *object, options*: set attributes by adding or modifying the current 
+# 			ones;
+# 		- *name string, value*: will set or add the single attribute with the 
+# 			given value if possible;
+# 		- *names array, options*: apply options derived actions to attributes in 
+# 			the array.
 # 		Options are:
 # 		- `reset`: defualt to false, if true will remove all attributes before 
 # 			setting the new ones. If false, setted attributes will be merged with 
 # 			existing ones;
 # 		- `unset`: default to false, if true will remove the specified attributes
-# 			instead of setting them.
+# 			instead of setting them;
+# 		- `save`: will call the `save` method automatically with the new 
+# 			attributes;
+# 		- `waitSave`: before setting the model, send a `save` request and waits 
+# 			for it to be successfully completed.
 # 		Returns `attributes`.
 #
 # Example Usage:
@@ -130,12 +118,12 @@ Eggs.Model = class Model
 
 		# Setting model's attributes
 		@set = (obj, opts) ->
-			unless arguments.length > 1 or isHash(obj)
+			unless arguments.length > 1 or _.isPlainObject(obj)
 				throw new Error("Invalid parameter for `set` method: #{obj}")
 			opts ?= {}
 			if opts.unset
 				if _.isString(obj) then obj = [obj]
-				else if isHash(obj) then obj = _.keys(obj)
+				else if _.isPlainObject(obj) then obj = _.keys(obj)
 				newAttributes = _.omit(attributes, obj)
 				if _.difference(_.keys(attributes), _.keys(newAttributes))
 					attributes = newAttributes
@@ -257,13 +245,6 @@ Eggs.Model = class Model
 
 # Eggs.Collection
 # ---------------
-
-# Collection specific utility to extract attributes from a Models array.
-# Returns a Bacon.Property.
-Bacon.Observable.prototype.attributes = ->
-	@flatMapLatest((models) ->
-		Bacon.combineAsArray(m.attributes() for m in models))
-	.toProperty()
 
 # An `Eggs.Collection` groups together multiple model instances. 
 #
@@ -475,6 +456,7 @@ Eggs.Collection = class Collection
 								cleanAdd.push(add[addIndex])
 							# We can finally add to the modelsArray and push the update
 							if cleanAdd.length
+								# TODO handle `save` option and `waitSave`
 								modelsArray[at..at-1] = cleanAdd
 								modelsBus.push(modelsArray)
 							# Will return the models property already updated with the change
@@ -546,7 +528,32 @@ Eggs.Collection = class Collection
 		fetch.onValue -> Bacon.noMore
 		fetch
 
-# TODO add `create` or `sync` option to add and `waitSync`
+# Bacon extensions
+# ----------------
+
+# Get a field from an object
+Bacon.Observable.prototype.get = (field) ->
+	@map (obj) -> obj[field]
+
+# Pluck a filed from an array of objects
+Bacon.Observable.prototype.pluck = (field) ->
+	@filter(_.isArray).map((obj) -> _.pluck(obj, field))
+
+# Pick the given fields from an object
+Bacon.Observable.prototype.pick = (fields...) ->
+	@filter(_.isObject).map (obj) -> _.pick(obj, fields...)
+
+# Sends array of keys derived from an object
+Bacon.Observable.prototype.keys = ->
+	@filter(_.isObject).map(_.keys)
+
+# Collection specific utility to extract attributes from a Models array.
+# Returns a Bacon.Property.
+Bacon.Observable.prototype.attributes = ->
+	@flatMapLatest((models) ->
+		Bacon.combineAsArray(m.attributes() for m in models when m instanceof Model))
+	.toProperty()
+
 
 # UNTESTED WORK FROM THIS POINT
 # -----------------------------
