@@ -73,13 +73,6 @@ Eggs.Model = class Model
 	# Initialize could be used by subclasses to add their own model initialization
 	initialize: ->
 
-	# Parse is used to convert a server response into the object to be
-	# set as attributes for the model instance.
-	# It's a plain function returning an object that will be passed to
-	# `set` from the default `fetch` implementation.
-	parse: (response) -> 
-		response
-
 	# `defaults` can be defined as an object that contains default attributes
 	# that will be used when creating a new model.
 
@@ -87,8 +80,31 @@ Eggs.Model = class Model
 	# returning a falsy value if the attributes are valid. If the function
 	# returns something it will be treated as a validation error value.
 
-	# The model constructor will generate `attributes` method. It will also assing
-	# a client id `cid` to the model.
+	# Parse is used to convert a server response into the object to be
+	# set as attributes for the model instance.
+	# It's a plain function returning an object that will be passed to
+	# `set` from the default `fetch` implementation.
+	parse: (response) -> 
+		response
+
+	# A function that prepare the JSON to be sent to the server for saving. 
+	# This method will also be used by the default `toJSON` implementation.
+	prepareJSON: (attributes) ->
+		attributes
+
+	# A function that prepares the URL to be used to save or fetch this model to 
+	# the server. The default implementation uses `urlRoot` or the collection's 
+	# url and the model's id to craft an URL of the form: urlRoot/id.
+	prepareURL: (attributes) ->
+		base = _.result(@, 'urlRoot') or @collection?.url
+		throw new Error("Expecting `urlRoot` to be defined") unless base?
+		if base.charAt(base.length - 1) is '/'
+			base = base.substring(0, base.length - 1)
+		id = attributes[@idAttribute]
+		if id then "#{base}/#{encodeURIComponent(id)}" else base
+
+	# The model constructor will generate `attributes` method. It will also 
+	# assing a client id `cid` to the model.
 	constructor: (attrs, options) ->
 		options = _.defaults {}, options, 
 			shouldValidate: yes
@@ -110,7 +126,7 @@ Eggs.Model = class Model
 
 		# Subscribe on an empty function to activate the property so that it will
 		# always be current.
-		attributesProperty.onValue ->
+		attributesProperty.onValue -> 
 
 		# The main accessor to model attributes.
 		@attributes = ->
@@ -118,32 +134,85 @@ Eggs.Model = class Model
 
 		# Setting model's attributes
 		@set = (obj, opts) ->
+			# Accepts only a plain object if there are no options
 			unless arguments.length > 1 or _.isPlainObject(obj)
 				throw new Error("Invalid parameter for `set` method: #{obj}")
+
+			obj ?= {}
 			opts ?= {}
+			# Unset will remove the given options
 			if opts.unset
+				# For unset one can specity an attribute name, a plain object or an 
+				# array of names. Homogenize to the latest
 				if _.isString(obj) then obj = [obj]
 				else if _.isPlainObject(obj) then obj = _.keys(obj)
+				# Getting the new attributes
 				newAttributes = _.omit(attributes, obj)
+				# Push only if something have actually been unset
 				if _.difference(_.keys(attributes), _.keys(newAttributes))
 					attributes = newAttributes
 					attributesBus.push(_.clone(attributes))
+				# Early exit
 				return attributesProperty
+
+			# One can specify a single attribute to set, generate a plain object for 
+			# that and get the third parameter as options
 			if _.isString(obj)
 				o = {}
 				o[obj] = opts
 				obj = o
-				opts = {}
-			unless opts.reset
-				obj = _.defaults({}, obj, attributes)
-			# Validation
-			unless _.isEqual(obj, attributes)
-				if options.shouldValidate and error = @validate?(obj)
-					attributesBus.error(error)
-					attributesBus.push({}) unless attributesAreValid
-				else
+				opts = arguments[2] ? {}
+
+			# Parse if needed
+			obj = @parse(obj) if opts.parse
+
+			# If there is no need to reset, mix new and current attributes
+			if opts.reset
+				obj = _.clone(obj)
+			else
+				obj = _.extend({}, attributes, obj)
+
+			# Validate only if there are changes
+			opts.save = yes if opts.waitSave
+			if (objEqualAttributes = _.isEqual(obj, attributes)) and not opts.save
+				return attributesProperty
+
+			# Push an error if validation fails
+			if options.shouldValidate and error = @validate?(obj)
+				attributesBus.error(error)
+				# Initialize attribute property with an empty object if there are 
+				# sill no valid attributes
+				attributesBus.push({}) unless attributesAreValid
+			else
+				# From now on attributes will be considered valid (they will not be 
+				# udpated on validation errors)
+				if opts.save
+					save = Bacon.fromPromise($.ajax
+						type: if obj[@idAttribute]? then 'PUT' else 'POST'
+						dataType: 'json'
+						processData: false
+						url: @prepareURL(obj)
+						data: obj).map((response) =>
+							attributesAreValid = yes
+							if opts.reset
+								attributes = _.extend(obj, @parse(response))
+							else
+								attributes = _.extend(attributes, obj, @parse(response)))
+					if opts.waitSave
+						# Activate the save by plugging it into the attribute bus
+						attributesBus.plug(save)
+						# Early exit, attributes will be updated by the plugged stream
+						return attributesBus.toProperty()
+					else
+						# Activate the save by consuming the stream
+						save.onValue (attr) -> 
+							attributesBus.push(_.clone(attr))
+							Bacon.noMore
+				# In case of normal set or saving without wait, update the attributes 
+				# imemdiatly
+				unless objEqualAttributes
 					attributesAreValid = yes
-					attributes = _.clone(obj)
+					attributes = obj
 					attributesBus.push(_.clone(attributes))
 			attributesProperty
 
@@ -152,8 +221,7 @@ Eggs.Model = class Model
 			@_valid or= attributesBus.map(yes).toProperty(attributesAreValid).skipDuplicates()
 
 		# Initialize the model attributes
-		attrs = _.defaults({}, attrs, defaults) if defaults = _.result(@, 'defaults')
-		@set(attrs or {})
+		@set(_.defaults({}, attrs, _.result(@, 'defaults')))
 
 		# Custom initialization
 		@initialize.apply(@, arguments)
@@ -170,7 +238,7 @@ Eggs.Model = class Model
 					dataType: 'json'
 					url: url)
 			.flatMapLatest((result) =>
-				@set @parse(result))
+				@set(result, { parse: yes }))
 			.toProperty()
 
 		# Activate the fetch reaction
@@ -179,25 +247,12 @@ Eggs.Model = class Model
 
 	# Initiates an AJAX request that sends the model's attributes to the server.
 	# Returns a Bacon.Property derived from the AJAX request promise.
-	# TODO options (updateModel, wait, ...)
-	save: ->
-		save = Bacon.combineAsArray(@url(), @toJSON())
-			.take(1)
-			.flatMapLatest((info) =>
-				[url, attributes] = info
-				Bacon.fromPromise $.ajax
-					type: if attributes[@idAttribute] then 'PUT' else 'POST'
-					dataType: 'json'
-					processData: false
-					url: url
-					data: attributes)
-			.flatMapLatest((result) =>
-				@set @parse(result))
-			.toProperty()
-
-		# Activate the save operation
-		save.onValue -> Bacon.noMore
-		save
+	save: (args...) ->
+		if _.isString(args[0])
+			args[2] = _.extend({}, args[2], { save: yes })
+		else
+			args[1] = _.extend({}, args[1], { save: yes })
+		@set(args...)
 
 	# Destroy the model instance on the server if it was present.
 	# Returns a Bacon.EvnetStream that will push a single value returned from
@@ -231,16 +286,14 @@ Eggs.Model = class Model
 	# Returns a Bacon.Property that updates with the URL for synching the model.
 	# This methos uses `urlRoot` to compute the URL.
 	url: ->
-		@_url or= @id().map (id) =>
-			base = _.result(@, 'urlRoot') or throw new Error("Expecting `urlRoot` to be defined")
-			base = base.substring(0, base.length - 1) if base.charAt(base.length - 1) is '/'
-			return "#{base}/#{encodeURIComponent(id)}" if id
-			base
+		@_url or= @attributes().map (attr) =>
+			@prepareURL(attr)
 
 	# Returns a Bacon.Property with the JSON reppresentation of the model's 
 	# attributes. By deafult, this function just returns `attributes()`.
 	toJSON: ->
-		@attributes()
+		@attributes().map (attr) =>
+			@prepareJSON(attr)
 
 
 # Eggs.Collection

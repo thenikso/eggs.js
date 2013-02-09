@@ -4,11 +4,9 @@ Eggs.js want to be a Reactive Javascript Web App Framework based on [Bacon.js](h
 
 ## Motivation
 
-[Bacon.js makes functional reactive programming sizzle](http://blog.flowdock.com/2013/01/22/functional-reactive-programming-with-bacon-js/). To use it to create web applications however, you still need a structure like the one provided by [Backbone.js](https://github.com/documentcloud/backbone/).
+[Bacon.js makes functional reactive programming sizzle](http://blog.flowdock.com/2013/01/22/functional-reactive-programming-with-bacon-js/). To use it to create web applications however, you still need a structure like the one provided by [Backbone.js](https://github.com/documentcloud/backbone/). Backbone.js and other similar frameworks are event-based and are an akward fit to Bacon.js FRP capabilities.
 
-Backbone.js and other similar frameworks are event-based and are an akward fit to Bacon.js FRP capabilities.
-
-Bacon.js could be used to provide the structure needed to easily assemble web applications based on REST services. A collection of tools and best practices to do so, would make a redistributable framework that would be as tasty as bacon with eggs.
+Eggs.js could be used to provide the structure needed to easily assemble web applications based on REST services. A collection of tools and best practices to do so, would make a redistributable framework that would be as tasty as bacon with eggs.
 
 ## Current status
 

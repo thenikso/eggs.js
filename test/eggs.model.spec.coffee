@@ -110,6 +110,9 @@ describe "Eggs.Model", ->
 				defaults:
 					one: 'one'
 					two: 'two'
+				parse: (response) ->
+					response.parsed = yes;
+					response
 
 		testModel = null
 
@@ -167,6 +170,11 @@ describe "Eggs.Model", ->
 			expectPropertyEvents(
 				-> testModel.unset('one').take(1)
 				[ { two: 2 } ])
+
+		it "should parse attributes if needed", ->
+			expectPropertyEvents(
+				-> testModel.set({ one: 1 }, { parse: yes }).take(1)
+				[ { one: 1, two: 2, parsed: yes } ])
 
 		it "should NOT push attributes if nothing changed", ->
 			expectPropertyEvents(
@@ -311,12 +319,12 @@ describe "Eggs.Model", ->
 								d.reject "ajax read error"
 						when 'PUT'
 							if options.data?.id == 1
-								d.resolve { id: 1 }
+								d.resolve { id: 1, updated: true }
 							else
 								d.reject "ajax save error"
 						when 'POST'
 							if options.url.indexOf('/1') < 0 and not options.data?.id?
-								d.resolve { id: 2, one: 'one', two: 'two' }
+								d.resolve { id: 2, one: 'one', two: 'two', saved: true }
 							else
 								d.reject "ajax create error"
 						when 'DELETE'
@@ -369,8 +377,8 @@ describe "Eggs.Model", ->
 
 		it "should correctly update the model on save if id is set", ->
 			expectPropertyEvents(
-				-> testModel.save().take(1)
-				[ { id: 1, one: 'one', two: 'two' } ])
+				-> testModel.save().take(2)
+				[ { id: 1, one: 'one', two: 'two' }, { id: 1, updated: true, one: 'one', two: 'two' } ])
 
 		it "should correctly save the model if id is not set", ->
 			expectPropertyEvents(
@@ -378,7 +386,12 @@ describe "Eggs.Model", ->
 					p = testModel.unset('id').take(2)
 					testModel.save()
 					p
-				[ { one : 'one', two : 'two' }, { id: 2, one: 'one', two: 'two' } ])
+				[ { one : 'one', two : 'two' }, { id: 2, one: 'one', two: 'two', saved: true } ])
+
+		it "should wait for synching before setting attributes", ->
+			expectPropertyEvents(
+				-> testModel.set({ two: 2 }, { waitSave: yes }).take(1)
+				[ { id: 1, one: 'one', two: 2, updated: true } ])
 
 		it "should forward ajax error on fetch", ->
 			expectStreamEvents(
