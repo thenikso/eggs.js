@@ -52,6 +52,9 @@ describe "Eggs.Collection", ->
 
 		class TestCollection extends Eggs.Collection
 			modelClass: TestModel
+			parse: (response) ->
+				response.push({ parsed: true })
+				response
 
 		testModel1 = null
 		testModel2 = null
@@ -141,6 +144,15 @@ describe "Eggs.Collection", ->
 						testCollection.add({ one: 'ONE' })
 					p
 				[ ['one', 1], ['one', 1, 'ONE'] ])
+
+		it "should parse added models", ->
+			expectPropertyEvents(
+				-> 
+					p = testCollection.validModels().attributes().pluck('parsed').take(2)
+					soon ->
+						testCollection.add({ one: 'ONE' }, { parse: yes })
+					p
+				[ [undefined, undefined], [undefined, undefined, undefined, yes] ])
 
 		it "should merge a model when adding if the id is the same", ->
 			expectPropertyEvents(

@@ -52,10 +52,10 @@ Eggs = @Eggs = {}
 # 			existing ones;
 # 		- `unset`: default to false, if true will remove the specified attributes
 # 			instead of setting them;
-# 		- `save`: will call the `save` method automatically with the new 
-# 			attributes;
-# 		- `waitSave`: before setting the model, send a `save` request and waits 
-# 			for it to be successfully completed.
+# 		- `save`: will send a request to the server to save the model based on 
+# 			id and url;
+# 		- `waitSave`: before pushing an updated attribute object, waits for the 
+# 			server to respond successfully to the save operation.
 # 		Returns `attributes`.
 #
 # Example Usage:
@@ -183,37 +183,39 @@ Eggs.Model = class Model
 				# Initialize attribute property with an empty object if there are 
 				# sill no valid attributes
 				attributesBus.push({}) unless attributesAreValid
-			else
-				# From now on attributes will be considered valid (they will not be 
-				# udpated on validation errors)
-				if opts.save
-					save = Bacon.fromPromise($.ajax
-						type: if obj[@idAttribute]? then 'PUT' else 'POST'
-						dataType: 'json'
-						processData: false
-						url: @prepareURL(obj)
-						data: obj).map((response) =>
-							attributesAreValid = yes
-							if opts.reset
-								attributes = _.extend(obj, @parse(response))
-							else
-								attributes = _.extend(attributes, obj, @parse(response)))
-					if opts.waitSave
-						# Activate the save by plugging it into the attribute bus
-						attributesBus.plug(save)
-						# Early exit, attributes will be updated by the plugged stream
-						return attributesBus.toProperty()
-					else
-						# Activate the save by consuming the stream
-						save.onValue (attr) -> 
-							attributesBus.push(_.clone(attr))
-							Bacon.noMore
-				# In case of normal set or saving without wait, update the attributes 
-				# imemdiatly
-				unless objEqualAttributes
-					attributesAreValid = yes
-					attributes = obj
-					attributesBus.push(_.clone(attributes))
+				return attributesProperty
+
+			# From now on attributes will be considered valid (they will not be 
+			# udpated on validation errors)
+			if opts.save
+				save = Bacon.fromPromise($.ajax
+					type: if obj[@idAttribute]? then 'PUT' else 'POST'
+					dataType: 'json'
+					processData: false
+					url: @prepareURL(obj)
+					data: obj).map((response) =>
+						attributesAreValid = yes
+						if opts.reset
+							attributes = _.extend(obj, @parse(response))
+						else
+							attributes = _.extend(attributes, obj, @parse(response)))
+				if opts.waitSave
+					# Activate the save by plugging it into the attribute bus
+					attributesBus.plug(save)
+					# Early exit, attributes will be updated by the plugged stream
+					return attributesBus.toProperty()
+				else
+					# Activate the save by consuming the stream
+					save.onValue (attr) -> 
+						attributesBus.push(_.clone(attr))
+						Bacon.noMore
+
+			# In case of normal set or saving without wait, update the attributes 
+			# imemdiatly
+			unless objEqualAttributes
+				attributesAreValid = yes
+				attributes = obj
+				attributesBus.push(_.clone(attributes))
 			attributesProperty
 
 		# Will indicate if the current set of attributes is valid.
@@ -275,6 +277,7 @@ Eggs.Model = class Model
 	# Unset the given attributes in the model. The parameter can either be a string
 	# with the name of the attribute to unset, or an array of names.
 	unset: (attrNames) ->
+		attrNames = [attrNames] unless _.isArray(attrNames)
 		@set(attrNames, { unset: true })
 
 	# Returns a Bacon.Property pushing the id of the model or null if the model 
@@ -336,6 +339,11 @@ Eggs.Model = class Model
 # 		- `update`: default to **false**, is similar to `merge` but instead of 
 # 			merging models having the same idAttribute it will substitute them;
 # 		- `at`: specify the index at which start to insert new attributes;
+# 		- `parse`: default to **false**, will use `parse` on added models before 
+# 			actually add them;
+# 		- `save`: will send a request to the server to save each model;
+# 		- `waitSave`: before pushing an updated models array, waits for the 
+# 			server to respond successfully to the save operations. 
 # 		Returns `models`.
 # 	- `remove` modify the collection's content by removing models. It accepts
 # 		an array of models or ids. Returns `models`.
@@ -472,11 +480,17 @@ Eggs.Collection = class Collection
 				delete m.collection for m in modelsArray when m.collection is @
 				modelsArray = []
 				modelsByCId = {}
+
+			# Parse models if needed
+			models = @parse(models) if options.parse
+
+			# Prapare models to make sure to have Model instances
 			for model in models
 				model = prepareModel(model, options)
 				unless modelsByCId[model.cid]?
 					add.push(model)
 					modelsByCId[model.cid] = model
+
 			if modelsArray.length
 				if add.length
 					# Prepare to add new models in a non empty collection
@@ -576,7 +590,7 @@ Eggs.Collection = class Collection
 			dataType: 'json'
 			url: url)
 		.flatMap((result) =>
-			@add @parse(result), _.extend({ reset: yes }, options))
+			@add(result, _.extend({ reset: yes }, options, { parse: yes })))
 		.toProperty()
 		fetch.onValue -> Bacon.noMore
 		fetch
